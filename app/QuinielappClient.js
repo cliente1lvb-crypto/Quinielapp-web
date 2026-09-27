@@ -363,7 +363,7 @@ function PlanBadge({ plan }) {
 function ScoreDigit({ children }) {
   return (
     <span style={{
-      fontFamily: "'Courier New', monospace", fontWeight: 700,
+      fontFamily: "var(--font-mono), 'Courier New', monospace", fontWeight: 700,
       fontSize: 22, color: COLORS.cream, letterSpacing: 1,
     }}>{children}</span>
   );
@@ -450,7 +450,7 @@ function GlobalQuinielaCard({ joinedGlobal, onJoinGlobal }) {
             }}>
               <div style={{
                 width: 18, textAlign: "center", color: COLORS.creamDim, fontWeight: 800,
-                fontSize: 11, fontFamily: "'Courier New', monospace",
+                fontSize: 11, fontFamily: "var(--font-mono), 'Courier New', monospace",
               }}>{p.n}</div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ color: COLORS.cream, fontSize: 11.5, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
@@ -520,7 +520,7 @@ function TournamentDetail({ t, onClose, onJoin }) {
             borderRadius: 12, background: p.rank <= 3 ? COLORS.goldSoft : COLORS.bgCard,
             border: `1px solid ${p.rank <= 3 ? COLORS.gold + "55" : COLORS.line}`,
           }}>
-            <div style={{ width: 22, textAlign: "center", fontFamily: "'Courier New', monospace", fontWeight: 800, color: p.rank === 1 ? COLORS.gold : COLORS.creamDim, fontSize: 13 }}>
+            <div style={{ width: 22, textAlign: "center", fontFamily: "var(--font-mono), 'Courier New', monospace", fontWeight: 800, color: p.rank === 1 ? COLORS.gold : COLORS.creamDim, fontSize: 13 }}>
               {p.rank <= 3 ? ["🥇", "🥈", "🥉"][p.rank - 1] : p.rank}
             </div>
             <div style={{ fontSize: 19 }}>{p.avatar}</div>
@@ -612,7 +612,7 @@ function RankingScreen({ onJoinGlobal, joinedGlobal }) {
               border: `1px solid ${p.rank <= 3 ? COLORS.gold + "55" : COLORS.line}`,
             }}>
               <div style={{
-                width: 22, textAlign: "center", fontFamily: "'Courier New', monospace", fontWeight: 800,
+                width: 22, textAlign: "center", fontFamily: "var(--font-mono), 'Courier New', monospace", fontWeight: 800,
                 color: p.rank === 1 ? COLORS.gold : COLORS.creamDim, fontSize: 13,
               }}>{p.rank <= 3 ? ["🥇", "🥈", "🥉"][p.rank - 1] : p.rank}</div>
               <div style={{ fontSize: 19 }}>{p.avatar}</div>
@@ -634,7 +634,7 @@ function RankingScreen({ onJoinGlobal, joinedGlobal }) {
               borderRadius: 12, background: COLORS.bg, border: `1.5px dashed ${COLORS.gold}66`,
             }}>
               <div style={{
-                width: 22, textAlign: "center", fontFamily: "'Courier New', monospace", fontWeight: 800,
+                width: 22, textAlign: "center", fontFamily: "var(--font-mono), 'Courier New', monospace", fontWeight: 800,
                 color: COLORS.gold, fontSize: 12,
               }}>#{YOU_GLOBAL.rank}</div>
               <div style={{ fontSize: 19 }}>{YOU_GLOBAL.avatar}</div>
@@ -739,7 +739,7 @@ function HomeScreen({ onOpenQuiniela, onCreate, fromFacebook, plan, onOpenPlan, 
         }}>
           <span style={{ fontSize: 18 }}>🏆</span>
           <div>
-            <div style={{ color: COLORS.cream, fontWeight: 800, fontSize: 22, fontFamily: "'Courier New', monospace" }}>{QUINIELAS.length}</div>
+            <div style={{ color: COLORS.cream, fontWeight: 800, fontSize: 22, fontFamily: "var(--font-mono), 'Courier New', monospace" }}>{QUINIELAS.length}</div>
             <div style={{ color: COLORS.creamDim, fontSize: 8.5, textTransform: "uppercase", letterSpacing: 0.3 }}>activas</div>
           </div>
         </div>
@@ -979,7 +979,7 @@ function QuinielaDetail({ q, onBack }) {
               border: `1px solid ${p.name === "Tú" ? COLORS.gold + "66" : COLORS.line}`,
             }}>
               <div style={{
-                width: 24, textAlign: "center", fontFamily: "'Courier New', monospace", fontWeight: 800,
+                width: 24, textAlign: "center", fontFamily: "var(--font-mono), 'Courier New', monospace", fontWeight: 800,
                 color: i === 0 ? COLORS.gold : COLORS.creamDim, fontSize: 14,
               }}>{i === 0 ? <Crown size={16} color={COLORS.gold} /> : i + 1}</div>
               <div style={{ fontSize: 20 }}>{p.avatar}</div>
@@ -2191,7 +2191,7 @@ function InviteFriendsScreen({ q, onClose }) {
             <div style={{ fontSize: 30, marginBottom: 8 }}>{q ? q.emoji : "🏆"}</div>
             <div style={{ color: COLORS.cream, fontWeight: 800, fontSize: 14, marginBottom: 4 }}>{q ? q.name : "Tu quiniela"}</div>
             <div style={{
-              color: COLORS.gold, fontFamily: "'Courier New', monospace", fontSize: 12.5,
+              color: COLORS.gold, fontFamily: "var(--font-mono), 'Courier New', monospace", fontSize: 12.5,
               background: COLORS.bg, padding: "8px 12px", borderRadius: 8, marginTop: 6, wordBreak: "break-all", textAlign: "center",
             }}>{link}</div>
           </div>
@@ -2321,10 +2321,10 @@ function DesktopRightPanel() {
         <div style={{ color: COLORS.creamDim, fontSize: 11, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Top ranking global</div>
         {GLOBAL_RANKING.slice(0, 5).map(p => (
           <div key={p.rank} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 0" }}>
-            <span style={{ width: 16, textAlign: "center", fontFamily: "'Courier New', monospace", color: p.rank === 1 ? COLORS.gold : COLORS.creamDim, fontWeight: 800, fontSize: 12 }}>{p.rank}</span>
+            <span style={{ width: 16, textAlign: "center", fontFamily: "var(--font-mono), 'Courier New', monospace", color: p.rank === 1 ? COLORS.gold : COLORS.creamDim, fontWeight: 800, fontSize: 12 }}>{p.rank}</span>
             <span style={{ fontSize: 16 }}>{p.avatar}</span>
             <span style={{ flex: 1, color: COLORS.cream, fontSize: 12, fontWeight: 600 }}>{p.name}</span>
-            <span style={{ color: COLORS.creamDim, fontSize: 11, fontFamily: "'Courier New', monospace" }}>{p.aciertos}/10</span>
+            <span style={{ color: COLORS.creamDim, fontSize: 11, fontFamily: "var(--font-mono), 'Courier New', monospace" }}>{p.aciertos}/10</span>
           </div>
         ))}
       </div>
@@ -2448,7 +2448,7 @@ export default function MiQuinielaApp() {
     return (
       <div style={{
         width: "100%", minHeight: "100vh", background: COLORS.bg, position: "relative",
-        overflow: "hidden", fontFamily: "'Helvetica Neue', Arial, sans-serif",
+        overflow: "hidden", fontFamily: "var(--font-display), 'Helvetica Neue', Arial, sans-serif",
       }}>
         {authStep !== "app" ? (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", width: "100%" }}>
@@ -2504,7 +2504,7 @@ export default function MiQuinielaApp() {
   return (
     <div style={{
       width: "100%", minHeight: "100vh", display: "flex", justifyContent: "center",
-      background: "#050d09", fontFamily: "'Helvetica Neue', Arial, sans-serif",
+      background: "#050d09", fontFamily: "var(--font-display), 'Helvetica Neue', Arial, sans-serif",
     }}>
       <div style={{
         width: 390, maxWidth: "100vw", minHeight: "100vh", background: COLORS.bg,
