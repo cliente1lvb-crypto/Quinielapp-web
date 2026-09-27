@@ -2176,6 +2176,136 @@ function InviteFriendsScreen({ q, onClose }) {
   );
 }
 
+// ---------- Desktop: layout propio, no el mismo diseño de teléfono estirado ----------
+// Detecta el viewport en el cliente (con listener de resize) para decidir entre el
+// shell de teléfono (marco angosto + nav inferior) y el shell de escritorio
+// (sidebar persistente + dashboard más completo con estadísticas extra).
+function useIsDesktop(breakpoint = 900) {
+  const [isDesktop, setIsDesktop] = useState(false);
+  useEffect(() => {
+    const check = () => setIsDesktop(window.innerWidth >= breakpoint);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, [breakpoint]);
+  return isDesktop;
+}
+
+function SidebarNav({ tab, setTab }) {
+  const items = [
+    { id: "home", icon: HomeIcon, label: "Inicio" },
+    { id: "quinielas", icon: Trophy, label: "Quinielas" },
+    { id: "ranking", icon: BarChart3, label: "Ranking" },
+    { id: "profile", icon: Users, label: "Perfil" },
+  ];
+  return (
+    <div style={{
+      width: 232, flexShrink: 0, borderRight: `1px solid ${COLORS.line}`,
+      background: COLORS.bgCard, padding: "28px 14px", display: "flex",
+      flexDirection: "column", gap: 3, position: "sticky", top: 0, height: "100vh",
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "0 10px", marginBottom: 34 }}>
+        <div style={{
+          width: 34, height: 34, borderRadius: 10, background: COLORS.goldSoft,
+          border: `1.5px solid ${COLORS.gold}`, display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          <Trophy size={17} color={COLORS.gold} />
+        </div>
+        <span style={{ color: COLORS.cream, fontWeight: 800, fontSize: 15 }}>Quinielapp</span>
+      </div>
+      {items.map(it => {
+        const active = tab === it.id;
+        const Icon = it.icon;
+        return (
+          <button key={it.id} onClick={() => setTab(it.id)} style={{
+            display: "flex", alignItems: "center", gap: 12, padding: "11px 14px", borderRadius: 10,
+            border: "none", cursor: "pointer", textAlign: "left",
+            background: active ? COLORS.goldSoft : "transparent",
+            color: active ? COLORS.gold : COLORS.creamDim, fontWeight: active ? 700 : 500, fontSize: 13.5,
+          }}>
+            <Icon size={17} strokeWidth={active ? 2.4 : 1.8} />
+            {it.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// Barras simples en SVG/CSS — sin librería de gráficas, consistente con el resto
+// de la app (todo hecho a mano). Estadística exclusiva de la vista de escritorio.
+function AciertosChart() {
+  const data = [4, 7, 5, 8, 6, 9];
+  return (
+    <div style={{ display: "flex", alignItems: "flex-end", gap: 8, height: 90, marginTop: 14 }}>
+      {data.map((v, i) => (
+        <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+          <div style={{
+            width: "100%", height: `${(v / 10) * 70}px`, borderRadius: 4,
+            background: i === data.length - 1 ? COLORS.gold : COLORS.line,
+          }} />
+          <span style={{ fontSize: 9, color: COLORS.creamDim }}>S{i + 1}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Panel exclusivo de escritorio: estadísticas y contexto que en el teléfono no
+// caben sin saturar la pantalla — aquí sí hay espacio de sobra para mostrarlas.
+function DesktopRightPanel() {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div style={{ background: COLORS.bgCard, border: `1px solid ${COLORS.line}`, borderRadius: 16, padding: 18 }}>
+        <div style={{ color: COLORS.creamDim, fontSize: 11, textTransform: "uppercase", letterSpacing: 1 }}>Tu progreso</div>
+        <div style={{ color: COLORS.cream, fontWeight: 800, fontSize: 15, marginTop: 4 }}>Aciertos por semana</div>
+        <AciertosChart />
+      </div>
+
+      <div style={{ background: COLORS.bgCard, border: `1px solid ${COLORS.line}`, borderRadius: 16, padding: 18 }}>
+        <div style={{ color: COLORS.creamDim, fontSize: 11, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Top ranking global</div>
+        {GLOBAL_RANKING.slice(0, 5).map(p => (
+          <div key={p.rank} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 0" }}>
+            <span style={{ width: 16, textAlign: "center", fontFamily: "'Courier New', monospace", color: p.rank === 1 ? COLORS.gold : COLORS.creamDim, fontWeight: 800, fontSize: 12 }}>{p.rank}</span>
+            <span style={{ fontSize: 16 }}>{p.avatar}</span>
+            <span style={{ flex: 1, color: COLORS.cream, fontSize: 12, fontWeight: 600 }}>{p.name}</span>
+            <span style={{ color: COLORS.creamDim, fontSize: 11, fontFamily: "'Courier New', monospace" }}>{p.aciertos}/10</span>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ background: COLORS.bgCard, border: `1px solid ${COLORS.line}`, borderRadius: 16, padding: 18 }}>
+        <div style={{ color: COLORS.creamDim, fontSize: 11, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Actividad reciente</div>
+        {NOTIFICATIONS.slice(0, 4).map(n => (
+          <div key={n.id} style={{ display: "flex", gap: 10, padding: "7px 0", alignItems: "flex-start" }}>
+            <span style={{ fontSize: 15 }}>{n.icon}</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ color: COLORS.cream, fontSize: 11.5, lineHeight: 1.4 }}>{n.title}</div>
+              <div style={{ color: COLORS.creamDim, fontSize: 10, marginTop: 2 }}>{n.time}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Dashboard de escritorio: reutiliza HomeScreen tal cual como columna principal
+// (misma lógica, mismos datos) y le suma la columna de estadísticas de al lado —
+// nada se duplica, solo se le da más aire y más contexto al mismo contenido.
+function DesktopDashboard(props) {
+  return (
+    <div style={{ display: "flex", gap: 28, alignItems: "flex-start", maxWidth: 1040, margin: "0 auto" }}>
+      <div style={{ flex: "1 1 620px", minWidth: 0 }}>
+        <HomeScreen {...props} />
+      </div>
+      <div style={{ flex: "0 0 300px" }}>
+        <DesktopRightPanel />
+      </div>
+    </div>
+  );
+}
+
 export default function MiQuinielaApp() {
   const [authStep, setAuthStep] = useState("login"); // login | friendsFound | app
   const [fromFacebook, setFromFacebook] = useState(false);
@@ -2191,7 +2321,107 @@ export default function MiQuinielaApp() {
   const [joinedGlobal, setJoinedGlobal] = useState(false);
 
   const unreadCount = NOTIFICATIONS.filter(n => n.unread).length;
+  const isDesktop = useIsDesktop();
 
+  const homeProps = {
+    onOpenQuiniela: setOpenQuiniela, onCreate: () => setShowCreate(true),
+    fromFacebook, plan, onOpenPlan: () => setShowPlan(true),
+    onOpenNotifications: () => setShowNotifications(true), unreadCount,
+  };
+
+  const modals = (
+    <>
+      {showCreate && (
+        <CreateQuinielaModal
+          onClose={() => setShowCreate(false)}
+          onCreated={(newQ) => { setShowCreate(false); setShowInviteAfterCreate(newQ); }}
+          plan={plan}
+          onOpenPlan={() => setShowPlan(true)}
+        />
+      )}
+      {showInviteAfterCreate && (
+        <InviteFriendsScreen q={showInviteAfterCreate} onClose={() => setShowInviteAfterCreate(null)} />
+      )}
+      {showPlan && (
+        <PlanScreen plan={plan} onClose={() => setShowPlan(false)} onUpgrade={() => { setPlan("premium"); setShowPlan(false); }} />
+      )}
+      {showNotifications && <NotificationsScreen onClose={() => setShowNotifications(false)} />}
+      {showHistory && <HistoryScreen onClose={() => setShowHistory(false)} />}
+      {showSettings && (
+        <SettingsScreen
+          plan={plan}
+          onClose={() => setShowSettings(false)}
+          onDowngrade={() => setPlan("free")}
+          onLogout={() => { setShowSettings(false); setAuthStep("login"); setFromFacebook(false); }}
+          onDeleteAccount={() => { setShowSettings(false); setAuthStep("login"); setFromFacebook(false); setPlan("free"); }}
+        />
+      )}
+    </>
+  );
+
+  // ---------- Escritorio: sidebar persistente + dashboard con panel de estadísticas ----------
+  if (isDesktop) {
+    return (
+      <div style={{
+        width: "100%", minHeight: "100vh", background: COLORS.bg, position: "relative",
+        overflow: "hidden", fontFamily: "'Helvetica Neue', Arial, sans-serif",
+      }}>
+        {authStep !== "app" ? (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", width: "100%" }}>
+            <div style={{
+              width: 420, maxWidth: "92vw", minHeight: 640, background: COLORS.bg,
+              border: `1px solid ${COLORS.line}`, borderRadius: 20, overflow: "hidden",
+              display: "flex", flexDirection: "column",
+            }}>
+              {authStep === "login" && (
+                <LoginScreen
+                  onLogin={() => setAuthStep("app")}
+                  onFacebookLogin={() => { setFromFacebook(true); setAuthStep("friendsFound"); }}
+                />
+              )}
+              {authStep === "friendsFound" && (
+                <FriendsFoundScreen onContinue={() => setAuthStep("app")} />
+              )}
+            </div>
+          </div>
+        ) : openQuiniela ? (
+          <div style={{ display: "flex", minHeight: "100vh" }}>
+            <SidebarNav tab={tab} setTab={(t) => { setOpenQuiniela(null); setTab(t); }} />
+            <div style={{ flex: 1, display: "flex", justifyContent: "center", padding: 24 }}>
+              <div style={{
+                width: "100%", maxWidth: 560, height: "calc(100vh - 48px)", background: COLORS.bg,
+                border: `1px solid ${COLORS.line}`, borderRadius: 20, overflow: "hidden",
+                display: "flex", flexDirection: "column",
+              }}>
+                <QuinielaDetail q={openQuiniela} onBack={() => setOpenQuiniela(null)} />
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: "flex", minHeight: "100vh" }}>
+            <SidebarNav tab={tab} setTab={setTab} />
+            <div style={{ flex: 1, padding: "36px 40px", overflowY: "auto", height: "100vh" }}>
+              {tab === "home" && <DesktopDashboard {...homeProps} />}
+              {tab === "quinielas" && <DesktopDashboard {...homeProps} />}
+              {tab === "ranking" && (
+                <div style={{ maxWidth: 640, margin: "0 auto" }}>
+                  <RankingScreen onJoinGlobal={() => setJoinedGlobal(true)} joinedGlobal={joinedGlobal} />
+                </div>
+              )}
+              {tab === "profile" && (
+                <div style={{ maxWidth: 520, margin: "0 auto" }}>
+                  <ProfileScreen plan={plan} onOpenPlan={() => setShowPlan(true)} onOpenHistory={() => setShowHistory(true)} onOpenSettings={() => setShowSettings(true)} />
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+        {modals}
+      </div>
+    );
+  }
+
+  // ---------- Teléfono: el marco angosto de siempre, sin cambios ----------
   return (
     <div style={{
       width: "100%", minHeight: "100vh", display: "flex", justifyContent: "center",
@@ -2215,39 +2445,15 @@ export default function MiQuinielaApp() {
             <QuinielaDetail q={openQuiniela} onBack={() => setOpenQuiniela(null)} />
           ) : (
             <>
-              {tab === "home" && <HomeScreen onOpenQuiniela={setOpenQuiniela} onCreate={() => setShowCreate(true)} fromFacebook={fromFacebook} plan={plan} onOpenPlan={() => setShowPlan(true)} onOpenNotifications={() => setShowNotifications(true)} unreadCount={unreadCount} />}
-              {tab === "quinielas" && <HomeScreen onOpenQuiniela={setOpenQuiniela} onCreate={() => setShowCreate(true)} fromFacebook={fromFacebook} plan={plan} onOpenPlan={() => setShowPlan(true)} onOpenNotifications={() => setShowNotifications(true)} unreadCount={unreadCount} />}
+              {tab === "home" && <HomeScreen {...homeProps} />}
+              {tab === "quinielas" && <HomeScreen {...homeProps} />}
               {tab === "ranking" && <RankingScreen onJoinGlobal={() => setJoinedGlobal(true)} joinedGlobal={joinedGlobal} />}
               {tab === "profile" && <ProfileScreen plan={plan} onOpenPlan={() => setShowPlan(true)} onOpenHistory={() => setShowHistory(true)} onOpenSettings={() => setShowSettings(true)} />}
               <BottomNav tab={tab} setTab={setTab} />
             </>
           )
         )}
-        {showCreate && (
-          <CreateQuinielaModal
-            onClose={() => setShowCreate(false)}
-            onCreated={(newQ) => { setShowCreate(false); setShowInviteAfterCreate(newQ); }}
-            plan={plan}
-            onOpenPlan={() => setShowPlan(true)}
-          />
-        )}
-        {showInviteAfterCreate && (
-          <InviteFriendsScreen q={showInviteAfterCreate} onClose={() => setShowInviteAfterCreate(null)} />
-        )}
-        {showPlan && (
-          <PlanScreen plan={plan} onClose={() => setShowPlan(false)} onUpgrade={() => { setPlan("premium"); setShowPlan(false); }} />
-        )}
-        {showNotifications && <NotificationsScreen onClose={() => setShowNotifications(false)} />}
-        {showHistory && <HistoryScreen onClose={() => setShowHistory(false)} />}
-        {showSettings && (
-          <SettingsScreen
-            plan={plan}
-            onClose={() => setShowSettings(false)}
-            onDowngrade={() => setPlan("free")}
-            onLogout={() => { setShowSettings(false); setAuthStep("login"); setFromFacebook(false); }}
-            onDeleteAccount={() => { setShowSettings(false); setAuthStep("login"); setFromFacebook(false); setPlan("free"); }}
-          />
-        )}
+        {modals}
       </div>
     </div>
   );
