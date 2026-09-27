@@ -2059,7 +2059,7 @@ function SportsRainBackdrop({ count = 56 }) {
   );
 }
 
-function LoginScreen() {
+function LoginScreen({ wide = false }) {
   const [mode, setMode] = useState("login"); // login | signup
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -2114,9 +2114,8 @@ function LoginScreen() {
     setLoading(false);
   };
 
-  return (
-    <div style={{ display: "flex", flexDirection: "column", flex: 1, padding: "48px 24px 32px", justifyContent: "space-between", overflowY: "auto" }}>
-      <div>
+  const header = (
+    <>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 32 }}>
           <div style={{
             width: 60, height: 60, borderRadius: 16, background: COLORS.goldSoft, border: `1.5px solid ${COLORS.gold}`,
@@ -2128,6 +2127,10 @@ function LoginScreen() {
           <div style={{ color: COLORS.creamDim, fontSize: 12, marginTop: 4 }}>Arma la quiniela con tu banda</div>
         </div>
 
+    </>
+  );
+  const demoBox = (
+    <>
         <div style={{
           background: COLORS.goldSoft, border: `1px dashed ${COLORS.gold}88`, borderRadius: 12,
           padding: 14, marginBottom: 20,
@@ -2154,6 +2157,10 @@ function LoginScreen() {
           </div>
         </div>
 
+    </>
+  );
+  const formBlock = (
+    <>
         <button onClick={() => signIn("facebook")} style={{
           width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
           background: "#1877F2", border: "none", borderRadius: 12, padding: "13px 0",
@@ -2232,8 +2239,10 @@ function LoginScreen() {
         }}>
           {loading ? "Un momento..." : mode === "login" ? "Iniciar sesión" : "Crear cuenta"}
         </button>
-      </div>
-
+    </>
+  );
+  const footer = (
+    <>
       <div style={{ textAlign: "center", color: COLORS.creamDim, fontSize: 12.5, marginTop: 16 }}>
         {mode === "login" ? "¿No tienes cuenta? " : "¿Ya tienes cuenta? "}
         <span onClick={() => setMode(mode === "login" ? "signup" : "login")} style={{ color: COLORS.gold, fontWeight: 700, cursor: "pointer" }}>
@@ -2246,6 +2255,71 @@ function LoginScreen() {
           Al crear tu cuenta aceptas los <span style={{ color: COLORS.gold, textDecoration: "underline", cursor: "pointer" }}>Términos de uso</span> y el <span style={{ color: COLORS.gold, textDecoration: "underline", cursor: "pointer" }}>Aviso de privacidad</span> de Quinielapp.
         </div>
       )}
+    </>
+  );
+
+  // Escritorio: tarjeta ancha en dos columnas — a la izquierda la marca y el
+  // modo de pruebas, a la derecha los botones sociales y el formulario. Si la
+  // ventana es angosta, las columnas se apilan solas (auto-fit).
+  if (wide) {
+    return (
+      <div style={{
+        display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(380px, 1fr))",
+        flex: 1, minHeight: "inherit",
+      }}>
+        <div style={{
+          padding: "56px 56px 48px", display: "flex", flexDirection: "column", justifyContent: "center",
+          borderRight: `1px solid ${COLORS.line}`,
+          background: `linear-gradient(160deg, ${COLORS.gold}10, transparent 60%)`,
+        }}>
+          <div style={{
+            width: 64, height: 64, borderRadius: 18, background: COLORS.goldSoft, border: `1.5px solid ${COLORS.gold}`,
+            display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 22,
+          }}>
+            <TicketLogo size={32} />
+          </div>
+          <div style={{ color: COLORS.gold, fontSize: 12, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", marginBottom: 10 }}>
+            Quinielapp
+          </div>
+          <div style={{ color: COLORS.cream, fontWeight: 700, fontSize: 44, letterSpacing: -1.2, lineHeight: 1.08, marginBottom: 16 }}>
+            Arma la quiniela<br />con tu banda
+          </div>
+          <div style={{ color: COLORS.creamDim, fontSize: 15, lineHeight: 1.6, maxWidth: 440, marginBottom: 22 }}>
+            Quinielas privadas con amigos, ranking global estilo ProGol y torneos con premio — todo en un solo lugar.
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 30 }}>
+            {["Quinielas privadas", "Ranking global", "Torneos con premio", "Marcadores en vivo"].map(t => (
+              <span key={t} style={{
+                border: `1px solid ${COLORS.line}`, background: COLORS.bgCard, color: COLORS.cream,
+                fontSize: 11.5, fontWeight: 600, padding: "6px 11px", borderRadius: 999,
+              }}>{t}</span>
+            ))}
+          </div>
+          <div style={{ maxWidth: 440 }}>{demoBox}</div>
+        </div>
+        <div style={{ padding: "56px 56px 40px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+          <div style={{ color: COLORS.cream, fontWeight: 700, fontSize: 22, marginBottom: 6 }}>
+            {mode === "login" ? "Inicia sesión" : "Crea tu cuenta"}
+          </div>
+          <div style={{ color: COLORS.creamDim, fontSize: 13, marginBottom: 22 }}>
+            {mode === "login" ? "Entra y sigue armando tus quinielas." : "Es gratis y tarda menos de un minuto."}
+          </div>
+          {formBlock}
+          {footer}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", flex: 1, padding: "48px 24px 32px", justifyContent: "space-between", overflowY: "auto" }}>
+      <div>
+        {header}
+        {demoBox}
+        {formBlock}
+      </div>
+
+      {footer}
     </div>
   );
 }
@@ -2846,13 +2920,15 @@ export default function MiQuinielaApp() {
 
             {/* Tarjeta central con el formulario */}
             <div style={{
-              position: "relative", zIndex: 1, width: "100%", maxWidth: 420,
+              position: "relative", zIndex: 1, ...(authStep === "login"
+                ? { width: "min(1180px, 100%)", minHeight: "min(720px, calc(100vh - 96px))" }
+                : { width: "100%", maxWidth: 420, padding: "0 12px", boxSizing: "border-box" }),
               background: "rgba(10,13,11,0.8)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)",
-              border: `1px solid ${COLORS.gold}33`, borderRadius: 24, padding: "0 12px",
+              border: `1px solid ${COLORS.gold}33`, borderRadius: 24, overflow: "hidden",
               boxShadow: `0 30px 90px rgba(0,0,0,0.6), 0 0 60px ${COLORS.gold}14`,
               display: "flex", flexDirection: "column",
             }}>
-              {authStep === "login" && <LoginScreen />}
+              {authStep === "login" && <LoginScreen wide />}
               {authStep === "friendsFound" && (
                 <FriendsFoundScreen onContinue={() => setAuthStep("app")} />
               )}
