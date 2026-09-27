@@ -33,7 +33,27 @@ const GLASS = {
 const AppCtx = React.createContext({
   userName: "Tú", go: () => {}, openAdvertise: () => {}, openLegal: () => {},
   openFriends: () => {}, openHistory: () => {}, openNotifications: () => {},
+  dbMode: false, me: null, globalData: null, submitGlobal: async () => ({ ok: true }),
+  saveProfile: async () => ({ ok: true }), toast: () => {},
 });
+
+// fetch a nuestras rutas de /api con JSON de ida y vuelta. Nunca lanza: si algo
+// falla regresa { ok: false, error }.
+async function api(path, { method = "GET", body } = {}) {
+  try {
+    const res = await fetch(path, {
+      method,
+      headers: body ? { "Content-Type": "application/json" } : undefined,
+      body: body ? JSON.stringify(body) : undefined,
+      cache: "no-store",
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.ok === false) return { ok: false, status: res.status, error: data.error || "Algo salió mal. Intenta de nuevo.", demo: data.demo };
+    return { ok: true, ...data };
+  } catch (e) {
+    return { ok: false, error: "Sin conexión. Revisa tu internet." };
+  }
+}
 
 // ---------- Integración con API-Football (marcador en tiempo real) ----------
 // Investigación: de las opciones evaluadas (API-Football, football-data.org,
@@ -425,10 +445,27 @@ function LEVPicker({ value, onChange }) {
 }
 
 function GlobalQuinielaCard({ joinedGlobal, onJoinGlobal }) {
-  const [picks, setPicks] = useState({});
-  const [sent, setSent] = useState(false);
-  const total = GLOBAL_SORTEO.partidos.length;
-  const done = Object.keys(picks).length;
+  const { globalData, submitGlobal } = React.useContext(AppCtx);
+  const sorteo = globalData && globalData.draw ? {
+    numero: globalData.draw.id, cierra: globalData.draw.closeLabel || "",
+    partidos: globalData.matches.map(m => ({ n: m.n, home: m.home, away: m.away, league: m.league })),
+  } : GLOBAL_SORTEO;
+  const myTicket = globalData ? globalData.myTicket : null;
+  const [picks, setPicks] = useState(myTicket || {});
+  const [sent, setSent] = useState(!!myTicket);
+  const [sending, setSending] = useState(false);
+  const [err, setErr] = useState("");
+  useEffect(() => { if (myTicket) { setPicks(myTicket); setSent(true); } }, [myTicket]);
+  const total = sorteo.partidos.length;
+  const done = sorteo.partidos.filter(p => picks[p.n]).length;
+  if (myTicket && !joinedGlobal) joinedGlobal = true;
+  const send = async () => {
+    if (done < total || sending) return;
+    setSending(true); setErr("");
+    const r = await submitGlobal(picks);
+    setSending(false);
+    if (r.ok) setSent(true); else setErr(r.error);
+  };
 
   return (
     <div style={{
@@ -438,11 +475,11 @@ function GlobalQuinielaCard({ joinedGlobal, onJoinGlobal }) {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <BarChart3 size={16} color={COLORS.gold} />
-          <span style={{ color: COLORS.cream, fontWeight: 800, fontSize: 13.5 }}>Quiniela Global · Sorteo #{GLOBAL_SORTEO.numero}</span>
+          <span style={{ color: COLORS.cream, fontWeight: 800, fontSize: 13.5 }}>Quiniela Global · Sorteo #{sorteo.numero}</span>
         </div>
       </div>
       <div style={{ color: COLORS.creamDim, fontSize: 11, marginBottom: 14 }}>
-        2 partidos de cada una de las 5 grandes ligas, generados automático cada semana. Pronostica L / E / V. Cierra {GLOBAL_SORTEO.cierra}.
+        2 partidos de cada una de las 5 grandes ligas, generados automático cada semana. Pronostica L / E / V. Cierra {sorteo.cierra}.
       </div>
 
       {!joinedGlobal ? (
@@ -452,7 +489,7 @@ function GlobalQuinielaCard({ joinedGlobal, onJoinGlobal }) {
         }}>Unirme a la Quiniela Global — gratis</button>
       ) : (
         <>
-          {GLOBAL_SORTEO.partidos.map(p => (
+          {sorteo.partidos.map(p => (
             <div key={p.n} style={{
               display: "flex", alignItems: "center", gap: 10, padding: "9px 0",
               borderBottom: `1px solid ${COLORS.line}`,
@@ -479,7 +516,7 @@ function GlobalQuinielaCard({ joinedGlobal, onJoinGlobal }) {
               <Check size={16} color={COLORS.gold} strokeWidth={3} />
               <div style={{ flex: 1 }}>
                 <div style={{ color: COLORS.cream, fontWeight: 800, fontSize: 12.5 }}>Boleto enviado</div>
-                <div style={{ color: COLORS.creamDim, fontSize: 10.5 }}>Tus 10 pronósticos quedaron registrados para el sorteo #{GLOBAL_SORTEO.numero}.</div>
+                <div style={{ color: COLORS.creamDim, fontSize: 10.5 }}>Tus 10 pronósticos quedaron registrados para el sorteo #{sorteo.numero}.</div>
               </div>
               <button onClick={() => setSent(false)} style={{
                 background: "none", border: `1px solid ${COLORS.line}`, borderRadius: 8, padding: "6px 10px",
@@ -487,14 +524,15 @@ function GlobalQuinielaCard({ joinedGlobal, onJoinGlobal }) {
               }}>Editar</button>
             </div>
           ) : (
-            <button onClick={() => done >= total && setSent(true)} disabled={done < total} style={{
+            <button onClick={send} disabled={done < total || sending} style={{
               width: "100%", marginTop: 12, background: done >= total ? COLORS.gold : COLORS.line, border: "none",
               borderRadius: 10, padding: "11px 0", color: done >= total ? COLORS.bg : COLORS.creamDim,
               fontWeight: 800, fontSize: 13, cursor: done >= total ? "pointer" : "default",
             }}>
-              {done >= total ? "Enviar boleto" : `Faltan ${total - done} pronósticos`}
+              {sending ? "Enviando..." : done >= total ? "Enviar boleto" : `Faltan ${total - done} pronósticos`}
             </button>
           )}
+          {err && <div style={{ color: COLORS.live, fontSize: 11.5, marginTop: 8, textAlign: "center" }}>{err}</div>}
         </>
       )}
     </div>
@@ -607,7 +645,11 @@ function TorneosTab() {
 }
 
 function RankingScreen({ onJoinGlobal, joinedGlobal }) {
+  const { globalData } = React.useContext(AppCtx);
   const [section, setSection] = useState("global"); // global | torneos
+  const rankingRows = globalData ? globalData.ranking.filter(r => !r.me) : GLOBAL_RANKING;
+  const myRow = globalData ? (globalData.me ? { rank: globalData.me.rank, name: "Tú", avatar: "🦁", aciertos: globalData.me.aciertos } : null) : YOU_GLOBAL;
+  const showMe = globalData ? !!globalData.me : joinedGlobal;
 
   return (
     <div style={{ padding: "20px 16px 16px", overflowY: "auto", flex: 1 }}>
@@ -633,7 +675,12 @@ function RankingScreen({ onJoinGlobal, joinedGlobal }) {
           <AdBanner placement="ranking_banner" />
 
           <div style={{ color: COLORS.creamDim, fontSize: 11, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Top jugadores del sorteo</div>
-          {GLOBAL_RANKING.map(p => (
+          {globalData && rankingRows.length === 0 && !globalData.me && (
+            <div style={{ color: COLORS.creamDim, fontSize: 12, textAlign: "center", padding: "18px 0" }}>
+              Todavía nadie envía su boleto de este sorteo. ¡Sé el primero!
+            </div>
+          )}
+          {rankingRows.map(p => (
             <div key={p.rank} style={{
               display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", marginBottom: 7,
               borderRadius: 12, background: p.rank <= 3 ? COLORS.goldSoft : COLORS.bgCard,
@@ -656,7 +703,7 @@ function RankingScreen({ onJoinGlobal, joinedGlobal }) {
             </div>
           ))}
 
-          {joinedGlobal && (
+          {showMe && myRow && (
             <div style={{
               display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", marginTop: 4,
               borderRadius: 12, background: COLORS.bg, border: `1.5px dashed ${COLORS.gold}66`,
@@ -664,10 +711,10 @@ function RankingScreen({ onJoinGlobal, joinedGlobal }) {
               <div style={{
                 width: 22, textAlign: "center", fontFamily: "var(--font-mono), 'Courier New', monospace", fontWeight: 800,
                 color: COLORS.gold, fontSize: 12,
-              }}>#{YOU_GLOBAL.rank}</div>
-              <div style={{ fontSize: 19 }}>{YOU_GLOBAL.avatar}</div>
-              <div style={{ flex: 1, color: COLORS.cream, fontWeight: 700, fontSize: 12.5 }}>{YOU_GLOBAL.name}</div>
-              <ScoreDigit>{YOU_GLOBAL.aciertos}/10</ScoreDigit>
+              }}>#{myRow.rank}</div>
+              <div style={{ fontSize: 19 }}>{myRow.avatar}</div>
+              <div style={{ flex: 1, color: COLORS.cream, fontWeight: 700, fontSize: 12.5 }}>{myRow.name}</div>
+              <ScoreDigit>{myRow.aciertos}/10</ScoreDigit>
             </div>
           )}
         </>
@@ -736,7 +783,9 @@ function QuinielaCard({ q, onOpen }) {
 }
 
 function HomeScreen({ quinielas = QUINIELAS, onOpenQuiniela, onCreate, fromFacebook, plan, onOpenPlan, onOpenNotifications, unreadCount }) {
-  const { userName, go, openFriends } = React.useContext(AppCtx);
+  const { userName, go, openFriends, globalData } = React.useContext(AppCtx);
+  const cierre = globalData && globalData.draw ? globalData.draw.closeLabel : GLOBAL_SORTEO.cierra;
+  const rankLabel = globalData ? (globalData.me ? `Vas en el lugar #${globalData.me.rank}` : "Aún no mandas tu boleto") : `Vas en el lugar #${YOU_GLOBAL.rank}`;
   const winning = quinielas.filter(q => q.you === 1).length;
   const clickable = { cursor: "pointer", textAlign: "left", font: "inherit" };
   return (
@@ -821,7 +870,7 @@ function HomeScreen({ quinielas = QUINIELAS, onOpenQuiniela, onCreate, fromFaceb
           padding: "12px 14px",
         }}>
           <div style={{ color: COLORS.creamDim, fontSize: 9.5, textTransform: "uppercase", letterSpacing: 0.8 }}>Sorteo Global</div>
-          <div style={{ color: COLORS.cream, fontSize: 11.5, fontWeight: 700, marginTop: 3 }}>Cierra {GLOBAL_SORTEO.cierra}</div>
+          <div style={{ color: COLORS.cream, fontSize: 11.5, fontWeight: 700, marginTop: 3 }}>Cierra {cierre}</div>
         </div>
 
         <div onClick={() => go("ranking")} style={{
@@ -831,7 +880,7 @@ function HomeScreen({ quinielas = QUINIELAS, onOpenQuiniela, onCreate, fromFaceb
           padding: "12px 14px",
         }}>
           <div style={{ color: COLORS.creamDim, fontSize: 9.5, textTransform: "uppercase", letterSpacing: 0.8 }}>Ranking global</div>
-          <div style={{ color: COLORS.cream, fontSize: 11.5, fontWeight: 700, marginTop: 3 }}>Vas en el lugar #{YOU_GLOBAL.rank}</div>
+          <div style={{ color: COLORS.cream, fontSize: 11.5, fontWeight: 700, marginTop: 3 }}>{rankLabel}</div>
         </div>
       </div>
 
@@ -875,31 +924,41 @@ function QuinielasScreen({ quinielas, onOpenQuiniela, onCreate, onJoin, wide = f
   const [joinMsg, setJoinMsg] = useState("");
 
   const live = quinielas.filter(q => q.status === "En vivo");
-  const soon = quinielas.filter(q => q.status !== "En vivo");
+  const soon = quinielas.filter(q => q.status === "Por comenzar");
   const base = filter === "live" ? live : filter === "soon" ? soon : quinielas;
+  // (las terminadas viven en su propio filtro)
   const list = base.filter(q => q.name.toLowerCase().includes(query.trim().toLowerCase()));
-  const past = PAST_QUINIELAS.filter(q => q.name.toLowerCase().includes(query.trim().toLowerCase()));
+  const { dbMode } = React.useContext(AppCtx);
+  const finished = quinielas.filter(q => q.status === "Terminada");
+  const pastList = dbMode ? [] : PAST_QUINIELAS; // historial de ejemplo solo en modo de pruebas
+  const past = pastList.filter(q => q.name.toLowerCase().includes(query.trim().toLowerCase()));
+  const finishedFiltered = finished.filter(q => q.name.toLowerCase().includes(query.trim().toLowerCase()));
 
-  const handleJoin = () => {
+  const [joining, setJoining] = useState(false);
+  const handleJoin = async () => {
     const raw = code.trim();
     if (!raw) return;
     const clean = (raw.split(/[=/]/).pop() || raw).replace(/[^a-zA-Z0-9-]/g, "").toUpperCase();
     if (!clean) { setJoinMsg("Ese código no es válido."); return; }
     const existing = quinielas.find(q => String(q.id).toUpperCase() === clean || q.code === clean);
     if (existing) { setJoinMsg(""); setShowJoin(false); setCode(""); onOpenQuiniela(existing); return; }
+    if (joining) return;
     const games = GLOBAL_SORTEO.partidos.slice(0, 3).map((m, i) => ({
       id: Date.now() + i, home: m.home, away: m.away, hs: null, as: null, min: GLOBAL_SORTEO.cierra, live: false, league: m.league,
     }));
-    onJoin({
+    setJoining(true);
+    const r = await onJoin(clean, {
       id: Date.now(), code: clean, name: `Quiniela ${clean}`, emoji: "🎟️", members: 6, max: 15, pot: 6,
       status: "Por comenzar", leader: "—", you: null, games,
     });
+    setJoining(false);
+    if (r && r.error) { setJoinMsg(r.error); return; }
     setJoinMsg(""); setShowJoin(false); setCode("");
   };
 
   const chips = [
     ["all", `Todas (${quinielas.length})`], ["live", `En vivo (${live.length})`],
-    ["soon", `Por comenzar (${soon.length})`], ["done", `Terminadas (${PAST_QUINIELAS.length})`],
+    ["soon", `Por comenzar (${soon.length})`], ["done", `Terminadas (${finished.length + pastList.length})`],
   ];
 
   return (
@@ -934,7 +993,7 @@ function QuinielasScreen({ quinielas, onOpenQuiniela, onCreate, onJoin, wide = f
             <button onClick={handleJoin} disabled={!code.trim()} style={{
               background: code.trim() ? COLORS.gold : COLORS.line, color: code.trim() ? COLORS.bg : COLORS.creamDim,
               border: "none", borderRadius: 10, padding: "0 16px", fontWeight: 800, fontSize: 12.5, cursor: code.trim() ? "pointer" : "default",
-            }}>Unirme</button>
+            }}>{joining ? "..." : "Unirme"}</button>
           </div>
           {joinMsg && <div style={{ color: COLORS.live, fontSize: 11.5, marginTop: 8 }}>{joinMsg}</div>}
         </div>
@@ -961,10 +1020,11 @@ function QuinielasScreen({ quinielas, onOpenQuiniela, onCreate, onJoin, wide = f
       </div>
 
       {filter === "done" ? (
-        past.length === 0 ? (
+        past.length === 0 && finishedFiltered.length === 0 ? (
           <div style={{ color: COLORS.creamDim, fontSize: 12.5, textAlign: "center", padding: 30 }}>No hay quinielas terminadas con ese nombre.</div>
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: wide ? "repeat(auto-fill, minmax(320px, 1fr))" : "1fr", gap: wide ? 12 : 0 }}>
+            {finishedFiltered.map(q => <QuinielaCard key={q.id} q={q} onOpen={onOpenQuiniela} />)}
             {past.map(q => (
               <button key={q.id} onClick={openHistory} style={{
                 width: "100%", textAlign: "left", background: COLORS.bgCard, border: `1px solid ${COLORS.line}`,
@@ -995,7 +1055,7 @@ function QuinielasScreen({ quinielas, onOpenQuiniela, onCreate, onJoin, wide = f
   );
 }
 
-function ReportBlockSheet({ from, onClose }) {
+function ReportBlockSheet({ from, onClose, onSubmit }) {
   const [action, setAction] = useState(null); // "report" | "block" | null
   const [reason, setReason] = useState("");
   const [done, setDone] = useState(false);
@@ -1047,7 +1107,7 @@ function ReportBlockSheet({ from, onClose }) {
                 padding: "11px 12px", marginBottom: 8, color: COLORS.cream, fontSize: 12.5, cursor: "pointer",
               }}>{r}</button>
             ))}
-            <button onClick={() => setDone(true)} disabled={!reason} style={{
+            <button onClick={() => { if (onSubmit) onSubmit("report", reason); setDone(true); }} disabled={!reason} style={{
               width: "100%", marginTop: 8, background: reason ? COLORS.live : COLORS.line, border: "none", borderRadius: 10,
               padding: "12px 0", color: reason ? "#fff" : COLORS.creamDim, fontWeight: 800, fontSize: 13,
               cursor: reason ? "pointer" : "default",
@@ -1062,7 +1122,7 @@ function ReportBlockSheet({ from, onClose }) {
               <Flag size={17} color={COLORS.creamDim} />
               <span style={{ color: COLORS.cream, fontSize: 13, fontWeight: 600 }}>Reportar mensaje</span>
             </button>
-            <button onClick={() => { setAction("block"); setDone(true); }} style={{
+            <button onClick={() => { if (onSubmit) onSubmit("block", null); setAction("block"); setDone(true); }} style={{
               width: "100%", display: "flex", alignItems: "center", gap: 12, background: COLORS.bg,
               border: `1px solid ${COLORS.live}55`, borderRadius: 12, padding: "13px 14px", cursor: "pointer",
             }}>
@@ -1076,19 +1136,56 @@ function ReportBlockSheet({ from, onClose }) {
   );
 }
 
-function QuinielaDetail({ q, onBack }) {
+function QuinielaDetail({ q, onBack, onChanged }) {
+  const isDb = !!q.db;
   const [tab, setTab] = useState("marcador");
   const [msg, setMsg] = useState("");
-  const [chat, setChat] = useState(CHAT);
+  const [chat, setChat] = useState(isDb ? [] : CHAT);
+  const [detail, setDetail] = useState(null);
+  const [loadErr, setLoadErr] = useState("");
+  const [pickErr, setPickErr] = useState({}); // { gameId: "mensaje" }
+  const [savingPick, setSavingPick] = useState(null);
   const [showInvite, setShowInvite] = useState(false);
   const [showManage, setShowManage] = useState(false);
   const [showReport, setShowReport] = useState(null); // { from } | null
   const [picks, setPicks] = useState({}); // { gameId: { h, a, saved } }
-  const games = useLiveScores(q.games); // marcador en vivo vía API-Football cuando hay key configurada
+  const liveGames = useLiveScores(q.games); // marcador en vivo vía API-Football cuando hay key configurada
+  const qq = (detail && detail.quiniela) || q;
+  const games = isDb ? qq.games : liveGames;
+
+  // Quinielas reales: carga el detalle y lo refresca cada 20 s (tabla, marcadores, chat).
+  useEffect(() => {
+    if (!isDb) return;
+    let alive = true;
+    const load = async (first) => {
+      const r = await api(`/api/quinielas/${q.id}`);
+      if (!alive) return;
+      if (!r.ok) { if (first) setLoadErr(r.error); return; }
+      setDetail(r);
+      setChat(r.chat);
+      if (first) setPicks(r.myPicks || {});
+      else setPicks(prev => ({ ...(r.myPicks || {}), ...Object.fromEntries(Object.entries(prev).filter(([, v]) => !v.saved)) }));
+    };
+    load(true);
+    const t = setInterval(() => load(false), 20000);
+    return () => { alive = false; clearInterval(t); };
+  }, [isDb, q.id]);
+
+  const board = isDb
+    ? (detail ? detail.standings.map(s => ({ name: s.me ? "Tú" : s.name, avatar: s.avatar || "🦁", pts: s.points, me: s.me })) : [])
+    : LEADERBOARD;
+
+  const postChat = async (text, sticker = false) => {
+    if (!isDb) { setChat(prev => [...prev, { from: "Tú", text, me: true, sticker }]); return; }
+    const tmp = { id: `tmp-${Date.now()}`, from: "Tú", text, me: true, sticker };
+    setChat(prev => [...prev, tmp]);
+    const r = await api(`/api/quinielas/${q.id}/chat`, { method: "POST", body: { text, sticker } });
+    setChat(prev => prev.map(c => c.id === tmp.id ? (r.ok ? r.message : { ...c, failed: true }) : c));
+  };
 
   const send = () => {
     if (!msg.trim()) return;
-    setChat([...chat, { from: "Tú", text: msg, me: true }]);
+    postChat(msg.trim());
     setMsg("");
   };
 
@@ -1100,8 +1197,15 @@ function QuinielaDetail({ q, onBack }) {
     });
   };
 
-  const savePick = (gameId) => {
-    setPicks(prev => ({ ...prev, [gameId]: { ...(prev[gameId] || { h: 0, a: 0 }), saved: true } }));
+  const savePick = async (gameId) => {
+    const cur = picks[gameId] || { h: 0, a: 0 };
+    if (!isDb) { setPicks(prev => ({ ...prev, [gameId]: { ...cur, saved: true } })); return; }
+    setSavingPick(gameId);
+    setPickErr(prev => ({ ...prev, [gameId]: "" }));
+    const r = await api(`/api/quinielas/${q.id}/predictions`, { method: "POST", body: { gameId, home: cur.h, away: cur.a } });
+    setSavingPick(null);
+    if (r.ok) { setPicks(prev => ({ ...prev, [gameId]: { ...cur, saved: true } })); if (onChanged) onChanged(); }
+    else setPickErr(prev => ({ ...prev, [gameId]: r.error }));
   };
 
   return (
@@ -1112,7 +1216,9 @@ function QuinielaDetail({ q, onBack }) {
           <div style={{ fontSize: 20 }}>{q.emoji}</div>
           <div style={{ flex: 1 }}>
             <div style={{ color: COLORS.cream, fontWeight: 800, fontSize: 15 }}>{q.name}</div>
-            <div style={{ color: COLORS.creamDim, fontSize: 11 }}>{q.members}/{q.max} amigos · {q.games.length} partidos</div>
+            <div style={{ color: COLORS.creamDim, fontSize: 11 }}>
+              {qq.members}/{qq.max} amigos · {games.length} partidos{q.code ? ` · código ${q.code}` : ""}
+            </div>
           </div>
           <button onClick={() => setShowInvite(true)} style={{ background: "none", border: "none", cursor: "pointer", display: "flex" }}>
             <Users size={17} color={COLORS.gold} />
@@ -1146,8 +1252,15 @@ function QuinielaDetail({ q, onBack }) {
             </span>
           </div>
           <div style={{ color: COLORS.creamDim, fontSize: 11, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Tabla en tiempo real</div>
-          {LEADERBOARD.map((p, i) => (
-            <div key={p.name} style={{
+          {loadErr && <div style={{ color: COLORS.live, fontSize: 12, marginBottom: 10 }}>{loadErr}</div>}
+          {isDb && !detail && !loadErr && <div style={{ color: COLORS.creamDim, fontSize: 12 }}>Cargando...</div>}
+          {isDb && detail && board.length === 1 && (
+            <div style={{ color: COLORS.creamDim, fontSize: 11.5, marginBottom: 10 }}>
+              Estás solo por ahora: invita a tu banda con el botón <Users size={11} style={{ verticalAlign: "middle" }} /> de arriba.
+            </div>
+          )}
+          {board.map((p, i) => (
+            <div key={p.name + i} style={{
               display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", marginBottom: 8,
               borderRadius: 12, background: p.name === "Tú" ? COLORS.goldSoft : COLORS.bgCard,
               border: `1px solid ${p.name === "Tú" ? COLORS.gold + "66" : COLORS.line}`,
@@ -1171,7 +1284,7 @@ function QuinielaDetail({ q, onBack }) {
             Puedes editar tu pronóstico hasta el silbatazo inicial de cada partido.
           </div>
           {games.map(g => {
-            const started = g.live || g.hs !== null;
+            const started = g.live || g.hs !== null || (g.status && g.status !== "scheduled") || (g.closesAt && new Date(g.closesAt) <= new Date());
             const pick = picks[g.id] || { h: 0, a: 0, saved: false };
             return (
               <div key={g.id} style={{
@@ -1228,11 +1341,12 @@ function QuinielaDetail({ q, onBack }) {
                   )}
                 </div>
 
+                {pickErr[g.id] && <div style={{ color: COLORS.live, fontSize: 11, marginTop: 8 }}>{pickErr[g.id]}</div>}
                 {!started && !pick.saved && (
-                  <button onClick={() => savePick(g.id)} style={{
+                  <button onClick={() => savePick(g.id)} disabled={savingPick === g.id} style={{
                     width: "100%", marginTop: 10, background: COLORS.gold, border: "none", borderRadius: 8,
                     padding: "7px 0", color: COLORS.bg, fontWeight: 800, fontSize: 11.5, cursor: "pointer",
-                  }}>Guardar pronóstico</button>
+                  }}>{savingPick === g.id ? "Guardando..." : "Guardar pronóstico"}</button>
                 )}
               </div>
             );
@@ -1272,10 +1386,13 @@ function QuinielaDetail({ q, onBack }) {
       {tab === "chat" && (
         <>
           <div style={{ padding: "12px 16px", overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
+            {isDb && chat.length === 0 && (
+              <div style={{ color: COLORS.creamDim, fontSize: 12, textAlign: "center", marginTop: 20 }}>Nadie ha escrito todavía. Rompe el hielo 👇</div>
+            )}
             {chat.map((c, i) => (
-              <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: c.me ? "flex-end" : "flex-start" }}>
+              <div key={c.id || i} style={{ display: "flex", flexDirection: "column", alignItems: c.me ? "flex-end" : "flex-start", opacity: c.failed ? 0.5 : 1 }}>
                 {!c.me && (
-                  <span onClick={() => setShowReport({ from: c.from })} style={{
+                  <span onClick={() => setShowReport({ from: c.from, userId: c.userId })} style={{
                     color: COLORS.creamDim, fontSize: 10, marginBottom: 2, marginLeft: 4, cursor: "pointer",
                   }}>{c.from}</span>
                 )}
@@ -1293,7 +1410,7 @@ function QuinielaDetail({ q, onBack }) {
           <div style={{ padding: 10, borderTop: `1px solid ${COLORS.line}` }}>
             <div style={{ display: "flex", gap: 6, marginBottom: 8, overflowX: "auto" }}>
               {STICKERS.map(s => (
-                <button key={s} onClick={() => setChat([...chat, { from: "Tú", text: s, me: true, sticker: true }])} style={{
+                <button key={s} onClick={() => postChat(s, true)} style={{
                   background: COLORS.bgCard, border: `1px solid ${COLORS.line}`, borderRadius: 10,
                   fontSize: 18, padding: "4px 8px", cursor: "pointer", flexShrink: 0,
                 }}>{s}</button>
@@ -1317,9 +1434,24 @@ function QuinielaDetail({ q, onBack }) {
           </div>
         </>
       )}
-      {showInvite && <InviteFriendsScreen q={q} onClose={() => setShowInvite(false)} />}
-      {showManage && <ManageMembersScreen q={q} onClose={() => setShowManage(false)} />}
-      {showReport && <ReportBlockSheet from={showReport.from} onClose={() => setShowReport(null)} />}
+      {showInvite && <InviteFriendsScreen q={qq} onClose={() => setShowInvite(false)} />}
+      {showManage && (
+        <ManageMembersScreen
+          q={qq}
+          dbMembers={isDb && detail ? detail.members : null}
+          meId={detail ? detail.me.id : null}
+          onRemoved={() => { if (onChanged) onChanged(); }}
+          onLeft={() => { if (onChanged) onChanged(); onBack(); }}
+          onClose={() => setShowManage(false)}
+        />
+      )}
+      {showReport && (
+        <ReportBlockSheet
+          from={showReport.from}
+          onSubmit={isDb ? (kind, reason) => api("/api/reports", { method: "POST", body: { kind, reason, reportedId: showReport.userId, quinielaId: q.id } }) : null}
+          onClose={() => setShowReport(null)}
+        />
+      )}
     </div>
   );
 }
@@ -1578,7 +1710,7 @@ function CreateQuinielaModal({ onClose, onCreated, plan, onOpenPlan }) {
 }
 
 function ProfileScreen({ plan, onOpenPlan, onOpenHistory, onOpenSettings, onOpenAdvertise }) {
-  const { userName, openFriends } = React.useContext(AppCtx);
+  const { userName, openFriends, me } = React.useContext(AppCtx);
   return (
     <div style={{ padding: 20, overflowY: "auto", flex: 1 }}>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 20 }}>
@@ -1586,7 +1718,7 @@ function ProfileScreen({ plan, onOpenPlan, onOpenHistory, onOpenSettings, onOpen
           width: 64, height: 64, borderRadius: "50%", background: COLORS.bgCard,
           border: `2px solid ${COLORS.gold}`, display: "flex", alignItems: "center",
           justifyContent: "center", fontSize: 28,
-        }}>🦁</div>
+        }}>{(me && me.avatar) || "🦁"}</div>
         <div style={{ color: COLORS.cream, fontWeight: 800, fontSize: 16, marginTop: 10 }}>{userName}</div>
         <button onClick={onOpenPlan} style={{ background: "none", border: "none", cursor: "pointer", marginTop: 8 }}>
           <PlanBadge plan={plan} />
@@ -1654,9 +1786,16 @@ function NotificationsScreen({ onClose, items = NOTIFICATIONS }) {
 }
 
 function SettingsScreen({ onClose, plan, onDowngrade, onLogout, onDeleteAccount }) {
-  const { userName, openLegal } = React.useContext(AppCtx);
-  const [name, setName] = useState(userName);
-  const [avatar, setAvatar] = useState("🦁");
+  const { userName, openLegal, me, dbMode, saveProfile } = React.useContext(AppCtx);
+  const [name, setName] = useState((me && me.name) || userName);
+  const [avatar, setAvatar] = useState((me && me.avatar) || "🦁");
+  const [profileMsg, setProfileMsg] = useState("");
+  const profileDirty = !!me && (name.trim() !== me.name || avatar !== (me.avatar || "🦁"));
+  const doSaveProfile = async () => {
+    setProfileMsg("Guardando...");
+    const r = await saveProfile({ name: name.trim(), avatar });
+    setProfileMsg(r.ok ? "Cambios guardados ✓" : r.error);
+  };
   const [confirmLogout, setConfirmLogout] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [deleteStep, setDeleteStep] = useState(0); // 0 | 1 | 2
@@ -1694,8 +1833,17 @@ function SettingsScreen({ onClose, plan, onDowngrade, onLogout, onDeleteAccount 
         <label style={{ color: COLORS.creamDim, fontSize: 11, textTransform: "uppercase", letterSpacing: 1 }}>Nombre</label>
         <input value={name} onChange={e => setName(e.target.value)} style={{
           width: "100%", background: COLORS.bgCard, border: `1px solid ${COLORS.line}`, borderRadius: 10,
-          padding: "10px 12px", color: COLORS.cream, fontSize: 13, marginTop: 6, marginBottom: 20, outline: "none",
+          padding: "10px 12px", color: COLORS.cream, fontSize: 13, marginTop: 6, marginBottom: dbMode ? 10 : 20, outline: "none",
         }} />
+        {dbMode && (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+            <button onClick={doSaveProfile} disabled={!profileDirty} style={{
+              background: profileDirty ? COLORS.gold : COLORS.line, color: profileDirty ? COLORS.bg : COLORS.creamDim,
+              border: "none", borderRadius: 10, padding: "9px 16px", fontWeight: 800, fontSize: 12.5, cursor: profileDirty ? "pointer" : "default",
+            }}>Guardar cambios</button>
+            {profileMsg && <span style={{ color: COLORS.creamDim, fontSize: 11.5 }}>{profileMsg}</span>}
+          </div>
+        )}
 
         <button onClick={() => openLegal("privacy")} style={{
           width: "100%", display: "flex", alignItems: "center", gap: 12, background: COLORS.bgCard,
@@ -1825,6 +1973,7 @@ function AdvertiseScreen({ onClose }) {
   const [sent, setSent] = useState(false);
   const [company, setCompany] = useState("");
   const [email, setEmail] = useState("");
+  const [leadErr, setLeadErr] = useState("");
 
   const placements = [
     { key: "home_banner", name: "Banner de Inicio", size: "320×100", where: "Entre tu tablero y la lista de tus quinielas — lo primero que ve cada usuario al abrir la app." },
@@ -1879,13 +2028,18 @@ function AdvertiseScreen({ onClose }) {
               width: "100%", background: COLORS.bgCard, border: `1px solid ${COLORS.line}`, borderRadius: 10,
               padding: "10px 12px", color: COLORS.cream, fontSize: 13, marginTop: 6, marginBottom: 18, outline: "none",
             }} />
-            <button onClick={() => company.trim() && email.trim() && setSent(true)} disabled={!company.trim() || !email.trim()} style={{
+            <button onClick={async () => {
+              if (!company.trim() || !email.trim()) return;
+              const r = await api("/api/ad-leads", { method: "POST", body: { company, email } });
+              if (r.ok) setSent(true); else setLeadErr(r.error);
+            }} disabled={!company.trim() || !email.trim()} style={{
               width: "100%", background: (company.trim() && email.trim()) ? COLORS.gold : COLORS.line, border: "none",
               borderRadius: 12, padding: "13px 0", color: (company.trim() && email.trim()) ? COLORS.bg : COLORS.creamDim,
               fontWeight: 700, fontSize: 13.5, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
             }}>
               <Mail size={15} /> Solicitar información
             </button>
+            {leadErr && <div style={{ color: COLORS.live, fontSize: 11.5, marginTop: 8 }}>{leadErr}</div>}
           </>
         )}
       </div>
@@ -2772,19 +2926,35 @@ function FriendsFoundScreen({ onContinue }) {
 }
 
 
-function ManageMembersScreen({ q, onClose }) {
-  const [members, setMembers] = useState([
-    { name: "Tú", avatar: "🦁", role: "admin" },
-    { name: "Karla Ramírez", avatar: "🦊", role: "member" },
-    { name: "Diego Salas", avatar: "🐯", role: "member" },
-    { name: "Memo Torres", avatar: "🐼", role: "member" },
-    { name: "Ana Beltrán", avatar: "🐨", role: "member" },
-  ]);
+function ManageMembersScreen({ q, onClose, dbMembers = null, meId = null, onRemoved, onLeft }) {
+  const isDb = !!dbMembers;
+  const [members, setMembers] = useState(isDb
+    ? dbMembers.map(m => ({ id: m.user_id, name: m.user_id === meId ? "Tú" : m.name, avatar: m.avatar || "🦁", role: m.role === "owner" ? "admin" : "member" }))
+    : [
+      { name: "Tú", avatar: "🦁", role: "admin" },
+      { name: "Karla Ramírez", avatar: "🦊", role: "member" },
+      { name: "Diego Salas", avatar: "🐯", role: "member" },
+      { name: "Memo Torres", avatar: "🐼", role: "member" },
+      { name: "Ana Beltrán", avatar: "🐨", role: "member" },
+    ]);
   const [confirmRemove, setConfirmRemove] = useState(null);
+  const [err, setErr] = useState("");
+  const iAmAdmin = isDb ? !!q.isOwner : true;
 
-  const remove = (name) => {
-    setMembers(prev => prev.filter(m => m.name !== name));
+  const remove = async (name) => {
+    const m = members.find(x => x.name === name);
+    if (isDb && m) {
+      const r = await api(`/api/quinielas/${q.id}/members?userId=${m.id}`, { method: "DELETE" });
+      if (!r.ok) { setErr(r.error); setConfirmRemove(null); return; }
+      if (onRemoved) onRemoved();
+    }
+    setMembers(prev => prev.filter(x => x.name !== name));
     setConfirmRemove(null);
+  };
+  const leave = async () => {
+    const r = await api(`/api/quinielas/${q.id}/members`, { method: "DELETE" });
+    if (!r.ok) { setErr(r.error); return; }
+    if (onLeft) onLeft();
   };
 
   return (
@@ -2797,6 +2967,7 @@ function ManageMembersScreen({ q, onClose }) {
         <div>
           <div style={{ color: COLORS.cream, fontWeight: 800, fontSize: 15 }}>Miembros del grupo</div>
           <div style={{ color: COLORS.creamDim, fontSize: 11 }}>{members.length}/{q.max} · solo el admin puede quitar gente</div>
+          {err && <div style={{ color: COLORS.live, fontSize: 11, marginTop: 4 }}>{err}</div>}
         </div>
       </div>
 
@@ -2815,7 +2986,7 @@ function ManageMembersScreen({ q, onClose }) {
                 </div>
               )}
             </div>
-            {m.role !== "admin" && (
+            {m.role !== "admin" && iAmAdmin && m.name !== "Tú" && (
               confirmRemove === m.name ? (
                 <div style={{ display: "flex", gap: 6 }}>
                   <button onClick={() => remove(m.name)} style={{
@@ -2836,6 +3007,12 @@ function ManageMembersScreen({ q, onClose }) {
             )}
           </div>
         ))}
+        {isDb && !iAmAdmin && (
+          <button onClick={leave} style={{
+            width: "100%", marginTop: 12, background: "transparent", border: `1px solid ${COLORS.live}66`, borderRadius: 12,
+            padding: "12px 0", color: COLORS.live, fontWeight: 700, fontSize: 13, cursor: "pointer",
+          }}>Salirme de esta quiniela</button>
+        )}
       </div>
     </div>
   );
@@ -3062,23 +3239,28 @@ function AciertosChart() {
 // Panel exclusivo de escritorio: estadísticas y contexto que en el teléfono no
 // caben sin saturar la pantalla — aquí sí hay espacio de sobra para mostrarlas.
 function DesktopRightPanel({ notifications = NOTIFICATIONS }) {
-  const { go, openNotifications } = React.useContext(AppCtx);
+  const { go, openNotifications, globalData, dbMode } = React.useContext(AppCtx);
+  const top = globalData ? globalData.ranking.slice(0, 5) : GLOBAL_RANKING.slice(0, 5);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <AdBanner placement="desktop_sidebar" />
 
+      {/* Gráfica de ejemplo: se oculta con datos reales hasta tener historial por semana. */}
+      {!dbMode && (
       <div style={{ background: COLORS.bgCard, border: `1px solid ${COLORS.line}`, borderRadius: 16, padding: 18 }}>
         <div style={{ color: COLORS.creamDim, fontSize: 11, textTransform: "uppercase", letterSpacing: 1 }}>Tu progreso</div>
         <div style={{ color: COLORS.cream, fontWeight: 800, fontSize: 15, marginTop: 4 }}>Aciertos por semana</div>
         <AciertosChart />
       </div>
+      )}
 
       <div style={{ background: COLORS.bgCard, border: `1px solid ${COLORS.line}`, borderRadius: 16, padding: 18 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
           <span style={{ color: COLORS.creamDim, fontSize: 11, textTransform: "uppercase", letterSpacing: 1 }}>Top ranking global</span>
           <button onClick={() => go("ranking")} style={{ background: "none", border: "none", color: COLORS.gold, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Ver todo →</button>
         </div>
-        {GLOBAL_RANKING.slice(0, 5).map(p => (
+        {top.length === 0 && <div style={{ color: COLORS.creamDim, fontSize: 11.5, padding: "6px 0" }}>Aún nadie envía boleto este sorteo.</div>}
+        {top.map(p => (
           <div key={p.rank} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 0" }}>
             <span style={{ width: 16, textAlign: "center", fontFamily: "var(--font-mono), 'Courier New', monospace", color: p.rank === 1 ? COLORS.gold : COLORS.creamDim, fontWeight: 800, fontSize: 12 }}>{p.rank}</span>
             <span style={{ fontSize: 16 }}>{p.avatar}</span>
@@ -3093,6 +3275,7 @@ function DesktopRightPanel({ notifications = NOTIFICATIONS }) {
           <span style={{ color: COLORS.creamDim, fontSize: 11, textTransform: "uppercase", letterSpacing: 1 }}>Actividad reciente</span>
           <button onClick={openNotifications} style={{ background: "none", border: "none", color: COLORS.gold, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Ver todo →</button>
         </div>
+        {notifications.length === 0 && <div style={{ color: COLORS.creamDim, fontSize: 11.5, padding: "6px 0" }}>Sin actividad todavía.</div>}
         {notifications.slice(0, 4).map(n => (
           <div key={n.id} onClick={openNotifications} style={{ display: "flex", gap: 10, padding: "7px 0", alignItems: "flex-start", cursor: "pointer" }}>
             <span style={{ fontSize: 15 }}>{n.icon}</span>
@@ -3137,14 +3320,58 @@ export default function MiQuinielaApp() {
   const [showHistory, setShowHistory] = useState(false);
   const [showAdvertise, setShowAdvertise] = useState(false);
   const [joinedGlobal, setJoinedGlobal] = useState(false);
-  const [quinielas, setQuinielas] = useState(QUINIELAS);
-  const [notifications, setNotifications] = useState(NOTIFICATIONS);
+  // null = todavía no sabemos si hay base de datos (evita mostrar los datos de
+  // ejemplo un instante antes de cargar los reales).
+  const [quinielasState, setQuinielas] = useState(null);
+  const [notifState, setNotifications] = useState(null);
+  const quinielas = quinielasState || [];
+  const notifications = notifState || [];
+  const [dbMode, setDbMode] = useState(false);
+  const [me, setMe] = useState(null);
+  const [globalData, setGlobalData] = useState(null);
+  const [toastMsg, setToastMsg] = useState("");
+  const toast = (m) => { setToastMsg(m); setTimeout(() => setToastMsg(""), 3500); };
   const [showFriends, setShowFriends] = useState(false);
   const [legal, setLegal] = useState(null); // "privacy" | "terms" | null
   const [joinCode, setJoinCode] = useState("");
 
   const unreadCount = notifications.filter(n => n.unread).length;
-  const userName = (session?.user?.name || "").trim().split(/\s+/)[0] || "Tú";
+  const userName = ((me && me.name) || session?.user?.name || "").trim().split(/\s+/)[0] || "Tú";
+
+  const refreshQuinielas = async () => {
+    const r = await api("/api/quinielas");
+    if (r.ok) setQuinielas(r.quinielas);
+    return r;
+  };
+  const refreshGlobal = async () => {
+    const g = await api("/api/global");
+    if (g.ok) setGlobalData(g);
+  };
+
+  // Al entrar: si hay base de datos (Neon) todo se lee de ahí; si no (modo de
+  // pruebas con las cuentas Demo), se usan los datos de ejemplo.
+  useEffect(() => {
+    if (authStep !== "app") return;
+    let alive = true;
+    (async () => {
+      const r = await api("/api/me");
+      if (!alive) return;
+      if (!r.ok) {
+        setDbMode(false);
+        setQuinielas(prev => prev || QUINIELAS);
+        setNotifications(prev => prev || NOTIFICATIONS);
+        return;
+      }
+      setDbMode(true);
+      setMe(r.me);
+      const [q, n] = await Promise.all([api("/api/quinielas"), api("/api/notifications")]);
+      if (!alive) return;
+      setQuinielas(q.ok ? q.quinielas : []);
+      setNotifications(n.ok ? n.notifications : []);
+      refreshGlobal();
+    })();
+    return () => { alive = false; };
+  }, [authStep]);
 
   // Link de invitación (?unirse=CODIGO): al entrar, manda a la pestaña de
   // Quinielas con el código ya escrito en "Unirme con código".
@@ -3154,10 +3381,43 @@ export default function MiQuinielaApp() {
     if (c) { setJoinCode(c); setTab("quinielas"); }
   }, []);
 
-  const addQuiniela = (q) => setQuinielas(prev => [{ status: "Por comenzar", leader: "—", you: null, pot: q.members || 1, ...q }, ...prev]);
+  const addQuiniela = (q) => setQuinielas(prev => [{ status: "Por comenzar", leader: "—", you: null, pot: q.members || 1, ...q }, ...(prev || []).filter(x => x.id !== q.id)]);
+
+  // Crear quiniela: en Neon si hay base de datos; si no, solo en memoria.
+  const createQuiniela = async (draft) => {
+    if (!dbMode) { addQuiniela(draft); return draft; }
+    const r = await api("/api/quinielas", {
+      method: "POST",
+      body: {
+        name: draft.name, emoji: draft.emoji, max: draft.max, period: draft.period,
+        games: draft.games.map(g => ({
+          home: g.home, away: g.away, league: g.league, label: g.min,
+          status: g.hs !== null && g.hs !== undefined ? "finished" : "scheduled", hs: g.hs, as: g.as,
+        })),
+      },
+    });
+    if (!r.ok) { toast(r.error); return null; }
+    addQuiniela(r.quiniela);
+    return r.quiniela;
+  };
+
+  // Unirse con código: en Neon valida que exista y que haya lugar.
+  const joinQuiniela = async (code, mock) => {
+    if (!dbMode) { addQuiniela(mock); setOpenQuiniela(mock); return { ok: true }; }
+    const r = await api("/api/quinielas/join", { method: "POST", body: { code } });
+    if (!r.ok) return { error: r.error };
+    addQuiniela(r.quiniela);
+    setOpenQuiniela(r.quiniela);
+    if (r.alreadyMember) toast("Ya eras miembro de esa quiniela.");
+    return { ok: true };
+  };
+
   const closeNotifications = () => {
     setShowNotifications(false);
-    setNotifications(prev => prev.map(n => ({ ...n, unread: false })));
+    if ((notifState || []).some(n => n.unread)) {
+      setNotifications(prev => (prev || []).map(n => ({ ...n, unread: false })));
+      if (dbMode) api("/api/notifications", { method: "POST" });
+    }
   };
   const go = (t) => { setOpenQuiniela(null); setTab(t); };
   const ctx = {
@@ -3167,6 +3427,18 @@ export default function MiQuinielaApp() {
     openFriends: () => setShowFriends(true),
     openHistory: () => setShowHistory(true),
     openNotifications: () => setShowNotifications(true),
+    dbMode, me, globalData, toast,
+    submitGlobal: async (picks) => {
+      if (!dbMode) return { ok: true };
+      const r = await api("/api/global", { method: "POST", body: { picks } });
+      if (r.ok) refreshGlobal();
+      return r;
+    },
+    saveProfile: async (patch) => {
+      const r = await api("/api/me", { method: "PATCH", body: patch });
+      if (r.ok) setMe(r.me);
+      return r;
+    },
   };
   const anyModal = showCreate || !!showInviteAfterCreate || showPlan || showNotifications || showHistory ||
     showAdvertise || showSettings || showFriends || !!legal;
@@ -3206,7 +3478,7 @@ export default function MiQuinielaApp() {
   };
   const quinielasProps = {
     quinielas, onOpenQuiniela: setOpenQuiniela, onCreate: () => setShowCreate(true),
-    onJoin: (q) => { addQuiniela(q); setOpenQuiniela(q); }, initialCode: joinCode,
+    onJoin: joinQuiniela, initialCode: joinCode,
   };
 
   const modals = (
@@ -3214,7 +3486,7 @@ export default function MiQuinielaApp() {
       {showCreate && (
         <CreateQuinielaModal
           onClose={() => setShowCreate(false)}
-          onCreated={(newQ) => { setShowCreate(false); addQuiniela(newQ); setShowInviteAfterCreate(newQ); }}
+          onCreated={async (newQ) => { setShowCreate(false); const created = await createQuiniela(newQ); if (created) setShowInviteAfterCreate(created); }}
           plan={plan}
           onOpenPlan={() => setShowPlan(true)}
         />
@@ -3291,7 +3563,7 @@ export default function MiQuinielaApp() {
                 border: `1px solid ${COLORS.line}`, borderRadius: 20, overflow: "hidden",
                 display: "flex", flexDirection: "column",
               }}>
-                <QuinielaDetail q={openQuiniela} onBack={() => setOpenQuiniela(null)} />
+                <QuinielaDetail key={openQuiniela.id} q={openQuiniela} onChanged={dbMode ? refreshQuinielas : null} onBack={() => { setOpenQuiniela(null); if (dbMode) refreshQuinielas(); }} />
               </div>
             </div>
           </div>
@@ -3336,6 +3608,14 @@ export default function MiQuinielaApp() {
             </div>
           </div>
         )}
+        {toastMsg && (
+          <div style={{
+            position: "fixed", left: "50%", bottom: 28, transform: "translateX(-50%)", zIndex: 80,
+            background: COLORS.bgCardAlt, border: `1px solid ${COLORS.gold}55`, color: COLORS.cream,
+            padding: "11px 16px", borderRadius: 12, fontSize: 12.5, fontWeight: 600, boxShadow: "0 12px 40px rgba(0,0,0,0.5)",
+            maxWidth: "90vw",
+          }}>{toastMsg}</div>
+        )}
       </div>
       </AppCtx.Provider>
     );
@@ -3358,7 +3638,7 @@ export default function MiQuinielaApp() {
         )}
         {authStep === "app" && (
           openQuiniela ? (
-            <QuinielaDetail q={openQuiniela} onBack={() => setOpenQuiniela(null)} />
+            <QuinielaDetail key={openQuiniela.id} q={openQuiniela} onChanged={dbMode ? refreshQuinielas : null} onBack={() => { setOpenQuiniela(null); if (dbMode) refreshQuinielas(); }} />
           ) : (
             <>
               {tab === "home" && <HomeScreen {...homeProps} />}
@@ -3370,6 +3650,14 @@ export default function MiQuinielaApp() {
           )
         )}
         {modals}
+        {toastMsg && (
+          <div style={{
+            position: "fixed", left: "50%", bottom: 28, transform: "translateX(-50%)", zIndex: 80,
+            background: COLORS.bgCardAlt, border: `1px solid ${COLORS.gold}55`, color: COLORS.cream,
+            padding: "11px 16px", borderRadius: 12, fontSize: 12.5, fontWeight: 600, boxShadow: "0 12px 40px rgba(0,0,0,0.5)",
+            maxWidth: "90vw",
+          }}>{toastMsg}</div>
+        )}
       </div>
     </div>
     </AppCtx.Provider>
