@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { useSession, signIn, signOut } from "next-auth/react";
-import { Trophy, Plus, Users, MessageCircle, Home as HomeIcon, X, Send, Crown, ChevronRight, Settings, Shield, Smile, Bell, LogOut, Camera, Inbox, BarChart3, Trash2, Flag, MoreVertical, Megaphone, Mail } from "lucide-react";
+import { Trophy, Plus, Users, MessageCircle, Home as HomeIcon, X, Send, Crown, ChevronRight, Settings, Shield, Smile, Bell, LogOut, Camera, Inbox, BarChart3, Trash2, Flag, MoreVertical, Megaphone, Mail, Search, Ticket, Check, FileText } from "lucide-react";
 
 // ---------- Design tokens ----------
 // Estilo casa de apuestas: negro profundo, verde neón como acento "momios", rojo vivo para en vivo
@@ -26,6 +26,14 @@ const GLASS = {
   WebkitBackdropFilter: "blur(20px)",
   border: "1px solid rgba(255,255,255,0.08)",
 };
+
+// Acciones globales de la app (navegar entre pestañas, abrir pantallas) y el
+// nombre del usuario con sesión. Cualquier componente las toma con useContext
+// sin tener que pasar props por 4 niveles.
+const AppCtx = React.createContext({
+  userName: "Tú", go: () => {}, openAdvertise: () => {}, openLegal: () => {},
+  openFriends: () => {}, openHistory: () => {}, openNotifications: () => {},
+});
 
 // ---------- Integración con API-Football (marcador en tiempo real) ----------
 // Investigación: de las opciones evaluadas (API-Football, football-data.org,
@@ -418,6 +426,7 @@ function LEVPicker({ value, onChange }) {
 
 function GlobalQuinielaCard({ joinedGlobal, onJoinGlobal }) {
   const [picks, setPicks] = useState({});
+  const [sent, setSent] = useState(false);
   const total = GLOBAL_SORTEO.partidos.length;
   const done = Object.keys(picks).length;
 
@@ -458,17 +467,34 @@ function GlobalQuinielaCard({ joinedGlobal, onJoinGlobal }) {
                 </div>
                 <div style={{ color: COLORS.creamDim, fontSize: 9.5 }}>{p.league}</div>
               </div>
-              <LEVPicker value={picks[p.n]} onChange={(v) => setPicks(prev => ({ ...prev, [p.n]: v }))} />
+              <LEVPicker value={picks[p.n]} onChange={(v) => { if (!sent) setPicks(prev => ({ ...prev, [p.n]: v })); }} />
             </div>
           ))}
 
-          <button disabled={done < total} style={{
-            width: "100%", marginTop: 12, background: done >= total ? COLORS.gold : COLORS.line, border: "none",
-            borderRadius: 10, padding: "11px 0", color: done >= total ? COLORS.bg : COLORS.creamDim,
-            fontWeight: 800, fontSize: 13, cursor: done >= total ? "pointer" : "default",
-          }}>
-            {done >= total ? "Enviar boleto" : `Faltan ${total - done} pronósticos`}
-          </button>
+          {sent ? (
+            <div style={{
+              marginTop: 12, display: "flex", alignItems: "center", gap: 10, background: COLORS.goldSoft,
+              border: `1px solid ${COLORS.gold}66`, borderRadius: 10, padding: "11px 12px",
+            }}>
+              <Check size={16} color={COLORS.gold} strokeWidth={3} />
+              <div style={{ flex: 1 }}>
+                <div style={{ color: COLORS.cream, fontWeight: 800, fontSize: 12.5 }}>Boleto enviado</div>
+                <div style={{ color: COLORS.creamDim, fontSize: 10.5 }}>Tus 10 pronósticos quedaron registrados para el sorteo #{GLOBAL_SORTEO.numero}.</div>
+              </div>
+              <button onClick={() => setSent(false)} style={{
+                background: "none", border: `1px solid ${COLORS.line}`, borderRadius: 8, padding: "6px 10px",
+                color: COLORS.creamDim, fontSize: 11, fontWeight: 700, cursor: "pointer",
+              }}>Editar</button>
+            </div>
+          ) : (
+            <button onClick={() => done >= total && setSent(true)} disabled={done < total} style={{
+              width: "100%", marginTop: 12, background: done >= total ? COLORS.gold : COLORS.line, border: "none",
+              borderRadius: 10, padding: "11px 0", color: done >= total ? COLORS.bg : COLORS.creamDim,
+              fontWeight: 800, fontSize: 13, cursor: done >= total ? "pointer" : "default",
+            }}>
+              {done >= total ? "Enviar boleto" : `Faltan ${total - done} pronósticos`}
+            </button>
+          )}
         </>
       )}
     </div>
@@ -672,13 +698,52 @@ function EmptyQuinielasState({ onCreate }) {
   );
 }
 
-function HomeScreen({ onOpenQuiniela, onCreate, fromFacebook, plan, onOpenPlan, onOpenNotifications, unreadCount }) {
-  const [demoEmpty, setDemoEmpty] = useState(false);
+function QuinielaCard({ q, onOpen }) {
+  return (
+    <button onClick={() => onOpen(q)} style={{
+      width: "100%", textAlign: "left", background: COLORS.bgCard, border: `1px solid ${COLORS.line}`,
+      borderRadius: 14, padding: 14, marginBottom: 10, cursor: "pointer", boxSizing: "border-box",
+    }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+          <div style={{ fontSize: 22 }}>{q.emoji}</div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ color: COLORS.cream, fontWeight: 700, fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{q.name}</div>
+            <div style={{ color: COLORS.creamDim, fontSize: 11, marginTop: 2 }}>
+              {q.members}/{q.max} amigos · {q.games.length} partidos · {new Set(q.games.map(g => g.league)).size} ligas
+            </div>
+          </div>
+        </div>
+        <ChevronRight size={18} color={COLORS.creamDim} />
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10 }}>
+        <span style={{
+          fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5,
+          color: q.status === "En vivo" ? COLORS.live : COLORS.teal,
+          background: q.status === "En vivo" ? `${COLORS.live}22` : `${COLORS.teal}33`,
+          padding: "3px 8px", borderRadius: 999,
+        }}>
+          {q.status === "En vivo" && "● "}{q.status}
+        </span>
+        {q.leader && q.leader !== "—" && (
+          <span style={{ color: COLORS.creamDim, fontSize: 11, display: "flex", alignItems: "center", gap: 4 }}>
+            <Crown size={12} color={COLORS.gold} /> {q.leader} al frente
+          </span>
+        )}
+      </div>
+    </button>
+  );
+}
+
+function HomeScreen({ quinielas = QUINIELAS, onOpenQuiniela, onCreate, fromFacebook, plan, onOpenPlan, onOpenNotifications, unreadCount }) {
+  const { userName, go, openFriends } = React.useContext(AppCtx);
+  const winning = quinielas.filter(q => q.you === 1).length;
+  const clickable = { cursor: "pointer", textAlign: "left", font: "inherit" };
   return (
     <div style={{ padding: "20px 16px 16px", overflowY: "auto", flex: 1 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
         <div>
-          <div style={{ color: COLORS.creamDim, fontSize: 12, letterSpacing: 1.5, textTransform: "uppercase" }}>Qué tal, Rodrigo</div>
+          <div style={{ color: COLORS.creamDim, fontSize: 12, letterSpacing: 1.5, textTransform: "uppercase" }}>Qué tal, {userName}</div>
           <div style={{ color: COLORS.cream, fontSize: 30, fontWeight: 800, marginTop: 2, letterSpacing: -0.5 }}>Tu tablero</div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -703,7 +768,8 @@ function HomeScreen({ onOpenQuiniela, onCreate, fromFacebook, plan, onOpenPlan, 
       </div>
 
       {fromFacebook && (
-        <div style={{
+        <div onClick={openFriends} style={{
+          cursor: "pointer",
           display: "flex", alignItems: "center", gap: 10, background: "#1877F218",
           border: "1px solid #1877F255", borderRadius: 12, padding: "10px 12px", marginBottom: 14,
         }}>
@@ -719,7 +785,8 @@ function HomeScreen({ onOpenQuiniela, onCreate, fromFacebook, plan, onOpenPlan, 
       <div style={{
         display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 22,
       }}>
-        <div style={{
+        <div onClick={() => go("quinielas")} style={{
+          ...clickable,
           gridColumn: "span 3", gridRow: "span 2",
           background: `linear-gradient(135deg, ${COLORS.bgCardAlt}, ${COLORS.bgCard})`,
           border: `1px solid ${COLORS.line}`, borderRadius: 18, padding: 18,
@@ -728,12 +795,13 @@ function HomeScreen({ onOpenQuiniela, onCreate, fromFacebook, plan, onOpenPlan, 
           <Trophy size={24} color={COLORS.gold} strokeWidth={1.6} />
           <div>
             <div style={{ color: COLORS.creamDim, fontSize: 10.5, textTransform: "uppercase", letterSpacing: 1 }}>Vas ganando en</div>
-            <div style={{ color: COLORS.gold, fontWeight: 800, fontSize: 20, marginTop: 2, letterSpacing: -0.3 }}>0 quinielas</div>
+            <div style={{ color: COLORS.gold, fontWeight: 800, fontSize: 20, marginTop: 2, letterSpacing: -0.3 }}>{winning} {winning === 1 ? "quiniela" : "quinielas"}</div>
             <div style={{ color: COLORS.creamDim, fontSize: 10.5 }}>esta semana</div>
           </div>
         </div>
 
-        <div style={{
+        <div onClick={() => go("quinielas")} style={{
+          ...clickable,
           gridColumn: "span 1", gridRow: "span 2",
           background: COLORS.bgCard, border: `1px solid ${COLORS.line}`, borderRadius: 18,
           padding: "14px 10px", display: "flex", flexDirection: "column",
@@ -741,12 +809,13 @@ function HomeScreen({ onOpenQuiniela, onCreate, fromFacebook, plan, onOpenPlan, 
         }}>
           <span style={{ fontSize: 18 }}>🏆</span>
           <div>
-            <div style={{ color: COLORS.cream, fontWeight: 800, fontSize: 22, fontFamily: "var(--font-mono), 'Courier New', monospace" }}>{QUINIELAS.length}</div>
+            <div style={{ color: COLORS.cream, fontWeight: 800, fontSize: 22, fontFamily: "var(--font-mono), 'Courier New', monospace" }}>{quinielas.length}</div>
             <div style={{ color: COLORS.creamDim, fontSize: 8.5, textTransform: "uppercase", letterSpacing: 0.3 }}>activas</div>
           </div>
         </div>
 
-        <div style={{
+        <div onClick={() => go("ranking")} style={{
+          ...clickable,
           gridColumn: "span 2",
           background: COLORS.bgCard, border: `1px solid ${COLORS.line}`, borderRadius: 18,
           padding: "12px 14px",
@@ -755,7 +824,8 @@ function HomeScreen({ onOpenQuiniela, onCreate, fromFacebook, plan, onOpenPlan, 
           <div style={{ color: COLORS.cream, fontSize: 11.5, fontWeight: 700, marginTop: 3 }}>Cierra {GLOBAL_SORTEO.cierra}</div>
         </div>
 
-        <div style={{
+        <div onClick={() => go("ranking")} style={{
+          ...clickable,
           gridColumn: "span 2",
           background: COLORS.bgCard, border: `1px solid ${COLORS.line}`, borderRadius: 18,
           padding: "12px 14px",
@@ -777,50 +847,150 @@ function HomeScreen({ onOpenQuiniela, onCreate, fromFacebook, plan, onOpenPlan, 
         </button>
       </div>
 
-      {demoEmpty ? (
+      {quinielas.length === 0 ? (
         <EmptyQuinielasState onCreate={onCreate} />
       ) : (
-        QUINIELAS.map(q => (
-          <button key={q.id} onClick={() => onOpenQuiniela(q)} style={{
-            width: "100%", textAlign: "left", background: COLORS.bgCard, border: `1px solid ${COLORS.line}`,
-            borderRadius: 14, padding: 14, marginBottom: 10, cursor: "pointer",
-          }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <div style={{ fontSize: 22 }}>{q.emoji}</div>
-                <div>
-                  <div style={{ color: COLORS.cream, fontWeight: 700, fontSize: 14 }}>{q.name}</div>
-                  <div style={{ color: COLORS.creamDim, fontSize: 11, marginTop: 2 }}>
-                    {q.members}/{q.max} amigos · {q.games.length} partidos · {new Set(q.games.map(g => g.league)).size} ligas
-                  </div>
-                </div>
-              </div>
-              <ChevronRight size={18} color={COLORS.creamDim} />
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10 }}>
-              <span style={{
-                fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5,
-                color: q.status === "En vivo" ? COLORS.live : COLORS.teal,
-                background: q.status === "En vivo" ? `${COLORS.live}22` : `${COLORS.teal}33`,
-                padding: "3px 8px", borderRadius: 999,
-              }}>
-                {q.status === "En vivo" && "● "}{q.status}
-              </span>
-              {q.leader !== "—" && (
-                <span style={{ color: COLORS.creamDim, fontSize: 11, display: "flex", alignItems: "center", gap: 4 }}>
-                  <Crown size={12} color={COLORS.gold} /> {q.leader} al frente
-                </span>
-              )}
-            </div>
-          </button>
-        ))
+        <>
+          {quinielas.slice(0, 3).map(q => <QuinielaCard key={q.id} q={q} onOpen={onOpenQuiniela} />)}
+          {quinielas.length > 3 && (
+            <button onClick={() => go("quinielas")} style={{
+              width: "100%", background: "none", border: `1px dashed ${COLORS.line}`, borderRadius: 12,
+              padding: "10px 0", color: COLORS.gold, fontWeight: 700, fontSize: 12.5, cursor: "pointer",
+            }}>Ver todas mis quinielas ({quinielas.length}) →</button>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// Pestaña "Quinielas": todas las quinielas del usuario con filtros por estado,
+// búsqueda, crear nueva y unirse con código/link de invitación.
+function QuinielasScreen({ quinielas, onOpenQuiniela, onCreate, onJoin, wide = false, initialCode = "" }) {
+  const { openHistory } = React.useContext(AppCtx);
+  const [filter, setFilter] = useState("all"); // all | live | soon | done
+  const [query, setQuery] = useState("");
+  const [showJoin, setShowJoin] = useState(!!initialCode);
+  const [code, setCode] = useState(initialCode);
+  const [joinMsg, setJoinMsg] = useState("");
+
+  const live = quinielas.filter(q => q.status === "En vivo");
+  const soon = quinielas.filter(q => q.status !== "En vivo");
+  const base = filter === "live" ? live : filter === "soon" ? soon : quinielas;
+  const list = base.filter(q => q.name.toLowerCase().includes(query.trim().toLowerCase()));
+  const past = PAST_QUINIELAS.filter(q => q.name.toLowerCase().includes(query.trim().toLowerCase()));
+
+  const handleJoin = () => {
+    const raw = code.trim();
+    if (!raw) return;
+    const clean = (raw.split(/[=/]/).pop() || raw).replace(/[^a-zA-Z0-9-]/g, "").toUpperCase();
+    if (!clean) { setJoinMsg("Ese código no es válido."); return; }
+    const existing = quinielas.find(q => String(q.id).toUpperCase() === clean || q.code === clean);
+    if (existing) { setJoinMsg(""); setShowJoin(false); setCode(""); onOpenQuiniela(existing); return; }
+    const games = GLOBAL_SORTEO.partidos.slice(0, 3).map((m, i) => ({
+      id: Date.now() + i, home: m.home, away: m.away, hs: null, as: null, min: GLOBAL_SORTEO.cierra, live: false, league: m.league,
+    }));
+    onJoin({
+      id: Date.now(), code: clean, name: `Quiniela ${clean}`, emoji: "🎟️", members: 6, max: 15, pot: 6,
+      status: "Por comenzar", leader: "—", you: null, games,
+    });
+    setJoinMsg(""); setShowJoin(false); setCode("");
+  };
+
+  const chips = [
+    ["all", `Todas (${quinielas.length})`], ["live", `En vivo (${live.length})`],
+    ["soon", `Por comenzar (${soon.length})`], ["done", `Terminadas (${PAST_QUINIELAS.length})`],
+  ];
+
+  return (
+    <div style={{ padding: wide ? 0 : "20px 16px 16px", overflowY: wide ? "visible" : "auto", flex: 1 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 12, marginBottom: 18, flexWrap: "wrap" }}>
+        <div>
+          <div style={{ color: COLORS.creamDim, fontSize: 12, letterSpacing: 1.5, textTransform: "uppercase" }}>Quinielas</div>
+          <div style={{ color: COLORS.cream, fontSize: wide ? 30 : 24, fontWeight: 800, marginTop: 2, letterSpacing: -0.5 }}>Mis quinielas</div>
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={() => { setShowJoin(!showJoin); setJoinMsg(""); }} style={{
+            display: "flex", alignItems: "center", gap: 6, background: COLORS.bgCard, color: COLORS.cream,
+            border: `1px solid ${COLORS.line}`, borderRadius: 999, padding: "8px 14px", fontWeight: 700, fontSize: 12, cursor: "pointer",
+          }}><Ticket size={14} /> Unirme con código</button>
+          <button onClick={onCreate} style={{
+            display: "flex", alignItems: "center", gap: 4, background: COLORS.gold, color: COLORS.bg,
+            border: "none", borderRadius: 999, padding: "8px 14px", fontWeight: 800, fontSize: 12, cursor: "pointer",
+          }}><Plus size={14} strokeWidth={3} /> Crear quiniela</button>
+        </div>
+      </div>
+
+      {showJoin && (
+        <div style={{ background: COLORS.bgCard, border: `1px solid ${COLORS.gold}55`, borderRadius: 14, padding: 14, marginBottom: 16 }}>
+          <div style={{ color: COLORS.cream, fontWeight: 700, fontSize: 13, marginBottom: 4 }}>Unirme a una quiniela</div>
+          <div style={{ color: COLORS.creamDim, fontSize: 11.5, marginBottom: 10 }}>Pega el link de invitación o escribe el código que te pasaron.</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input autoFocus value={code} onChange={e => setCode(e.target.value)} onKeyDown={e => e.key === "Enter" && handleJoin()}
+              placeholder="Ej. 4F7K2 o el link completo" style={{
+                flex: 1, minWidth: 0, background: COLORS.bg, border: `1px solid ${COLORS.line}`, borderRadius: 10,
+                padding: "10px 12px", color: COLORS.cream, fontSize: 13, outline: "none", boxSizing: "border-box",
+              }} />
+            <button onClick={handleJoin} disabled={!code.trim()} style={{
+              background: code.trim() ? COLORS.gold : COLORS.line, color: code.trim() ? COLORS.bg : COLORS.creamDim,
+              border: "none", borderRadius: 10, padding: "0 16px", fontWeight: 800, fontSize: 12.5, cursor: code.trim() ? "pointer" : "default",
+            }}>Unirme</button>
+          </div>
+          {joinMsg && <div style={{ color: COLORS.live, fontSize: 11.5, marginTop: 8 }}>{joinMsg}</div>}
+        </div>
       )}
 
-      <div style={{ textAlign: "center", marginTop: 8 }}>
-        <span onClick={() => setDemoEmpty(!demoEmpty)} style={{ color: COLORS.creamDim, fontSize: 10, textDecoration: "underline", cursor: "pointer" }}>
-          {demoEmpty ? "Ver con quinielas (demo)" : "Ver estado vacío (demo)"}
-        </span>
+      <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", flex: 1 }}>
+          {chips.map(([id, label]) => (
+            <button key={id} onClick={() => setFilter(id)} style={{
+              padding: "7px 12px", borderRadius: 999, cursor: "pointer", fontSize: 11.5, fontWeight: 700,
+              border: `1px solid ${filter === id ? COLORS.gold : COLORS.line}`,
+              background: filter === id ? COLORS.goldSoft : "transparent",
+              color: filter === id ? COLORS.gold : COLORS.creamDim,
+            }}>{label}</button>
+          ))}
+        </div>
+        <div style={{ position: "relative", width: wide ? 240 : "100%" }}>
+          <Search size={14} color={COLORS.creamDim} style={{ position: "absolute", left: 11, top: 11 }} />
+          <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar quiniela" style={{
+            width: "100%", background: COLORS.bgCard, border: `1px solid ${COLORS.line}`, borderRadius: 10,
+            padding: "9px 12px 9px 32px", color: COLORS.cream, fontSize: 12.5, outline: "none", boxSizing: "border-box",
+          }} />
+        </div>
       </div>
+
+      {filter === "done" ? (
+        past.length === 0 ? (
+          <div style={{ color: COLORS.creamDim, fontSize: 12.5, textAlign: "center", padding: 30 }}>No hay quinielas terminadas con ese nombre.</div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: wide ? "repeat(auto-fill, minmax(320px, 1fr))" : "1fr", gap: wide ? 12 : 0 }}>
+            {past.map(q => (
+              <button key={q.id} onClick={openHistory} style={{
+                width: "100%", textAlign: "left", background: COLORS.bgCard, border: `1px solid ${COLORS.line}`,
+                borderRadius: 14, padding: 14, marginBottom: 10, cursor: "pointer", display: "flex", alignItems: "center", gap: 12,
+              }}>
+                <div style={{ fontSize: 22 }}>{q.emoji}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ color: COLORS.cream, fontWeight: 700, fontSize: 14 }}>{q.name}</div>
+                  <div style={{ color: COLORS.creamDim, fontSize: 11, marginTop: 2 }}>
+                    Ganó {q.winner.avatar} {q.winner.name} con {q.winner.pts} pts · {q.members} jugadores
+                  </div>
+                </div>
+                <ChevronRight size={18} color={COLORS.creamDim} />
+              </button>
+            ))}
+          </div>
+        )
+      ) : list.length === 0 ? (
+        quinielas.length === 0 ? <EmptyQuinielasState onCreate={onCreate} /> : (
+          <div style={{ color: COLORS.creamDim, fontSize: 12.5, textAlign: "center", padding: 30 }}>No hay quinielas en esta vista.</div>
+        )
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: wide ? "repeat(auto-fill, minmax(320px, 1fr))" : "1fr", gap: wide ? 12 : 0 }}>
+          {list.map(q => <QuinielaCard key={q.id} q={q} onOpen={onOpenQuiniela} />)}
+        </div>
+      )}
     </div>
   );
 }
@@ -1408,6 +1578,7 @@ function CreateQuinielaModal({ onClose, onCreated, plan, onOpenPlan }) {
 }
 
 function ProfileScreen({ plan, onOpenPlan, onOpenHistory, onOpenSettings, onOpenAdvertise }) {
+  const { userName, openFriends } = React.useContext(AppCtx);
   return (
     <div style={{ padding: 20, overflowY: "auto", flex: 1 }}>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 20 }}>
@@ -1416,7 +1587,7 @@ function ProfileScreen({ plan, onOpenPlan, onOpenHistory, onOpenSettings, onOpen
           border: `2px solid ${COLORS.gold}`, display: "flex", alignItems: "center",
           justifyContent: "center", fontSize: 28,
         }}>🦁</div>
-        <div style={{ color: COLORS.cream, fontWeight: 800, fontSize: 16, marginTop: 10 }}>Rodrigo</div>
+        <div style={{ color: COLORS.cream, fontWeight: 800, fontSize: 16, marginTop: 10 }}>{userName}</div>
         <button onClick={onOpenPlan} style={{ background: "none", border: "none", cursor: "pointer", marginTop: 8 }}>
           <PlanBadge plan={plan} />
         </button>
@@ -1429,7 +1600,7 @@ function ProfileScreen({ plan, onOpenPlan, onOpenHistory, onOpenSettings, onOpen
         <span style={{ color: COLORS.cream, fontSize: 13, fontWeight: 700, flex: 1, textAlign: "left" }}>Mi plan y suscripción</span>
         <ChevronRight size={16} color={COLORS.creamDim} />
       </button>
-      {[["Historial de quinielas", Trophy, onOpenHistory], ["Amigos", Users, null], ["Anúnciate con nosotros", Megaphone, onOpenAdvertise], ["Ajustes", Settings, onOpenSettings]].map(([label, Icon, action]) => (
+      {[["Historial de quinielas", Trophy, onOpenHistory], ["Amigos", Users, openFriends], ["Anúnciate con nosotros", Megaphone, onOpenAdvertise], ["Ajustes", Settings, onOpenSettings]].map(([label, Icon, action]) => (
         <button key={label} onClick={action || undefined} style={{
           width: "100%", display: "flex", alignItems: "center", gap: 12, background: COLORS.bgCard,
           border: `1px solid ${COLORS.line}`, borderRadius: 12, padding: "13px 14px", marginBottom: 8,
@@ -1444,7 +1615,7 @@ function ProfileScreen({ plan, onOpenPlan, onOpenHistory, onOpenSettings, onOpen
   );
 }
 
-function NotificationsScreen({ onClose }) {
+function NotificationsScreen({ onClose, items = NOTIFICATIONS }) {
   return (
     <div style={{
       position: "absolute", inset: 0, background: COLORS.bg, zIndex: 10,
@@ -1454,14 +1625,14 @@ function NotificationsScreen({ onClose }) {
         <button onClick={onClose} style={{ background: "none", border: "none", color: COLORS.creamDim, cursor: "pointer", fontSize: 18 }}>←</button>
         <span style={{ color: COLORS.cream, fontWeight: 800, fontSize: 15 }}>Notificaciones</span>
       </div>
-      {NOTIFICATIONS.length === 0 ? (
+      {items.length === 0 ? (
         <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 20 }}>
           <Inbox size={30} color={COLORS.creamDim} style={{ marginBottom: 10 }} />
           <div style={{ color: COLORS.creamDim, fontSize: 12.5 }}>No tienes notificaciones</div>
         </div>
       ) : (
         <div style={{ padding: 12, overflowY: "auto", flex: 1 }}>
-          {NOTIFICATIONS.map(n => (
+          {items.map(n => (
             <div key={n.id} style={{
               display: "flex", alignItems: "flex-start", gap: 12,
               background: n.unread ? COLORS.goldSoft : COLORS.bgCard,
@@ -1483,7 +1654,8 @@ function NotificationsScreen({ onClose }) {
 }
 
 function SettingsScreen({ onClose, plan, onDowngrade, onLogout, onDeleteAccount }) {
-  const [name, setName] = useState("Rodrigo");
+  const { userName, openLegal } = React.useContext(AppCtx);
+  const [name, setName] = useState(userName);
   const [avatar, setAvatar] = useState("🦁");
   const [confirmLogout, setConfirmLogout] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
@@ -1525,14 +1697,14 @@ function SettingsScreen({ onClose, plan, onDowngrade, onLogout, onDeleteAccount 
           padding: "10px 12px", color: COLORS.cream, fontSize: 13, marginTop: 6, marginBottom: 20, outline: "none",
         }} />
 
-        <button style={{
+        <button onClick={() => openLegal("privacy")} style={{
           width: "100%", display: "flex", alignItems: "center", gap: 12, background: COLORS.bgCard,
           border: `1px solid ${COLORS.line}`, borderRadius: 12, padding: "13px 14px", marginBottom: 8, cursor: "pointer",
         }}>
           <span style={{ color: COLORS.cream, fontSize: 13, fontWeight: 600, flex: 1, textAlign: "left" }}>Aviso de privacidad</span>
           <ChevronRight size={16} color={COLORS.creamDim} />
         </button>
-        <button style={{
+        <button onClick={() => openLegal("terms")} style={{
           width: "100%", display: "flex", alignItems: "center", gap: 12, background: COLORS.bgCard,
           border: `1px solid ${COLORS.line}`, borderRadius: 12, padding: "13px 14px", marginBottom: 20, cursor: "pointer",
         }}>
@@ -1721,6 +1893,100 @@ function AdvertiseScreen({ onClose }) {
   );
 }
 
+const LEGAL = {
+  privacy: {
+    title: "Aviso de privacidad",
+    body: [
+      ["Qué datos guardamos", "Tu nombre, correo, fecha de nacimiento (si te registras con correo), foto de perfil de Google o Facebook (si entras con ellos) y tus pronósticos."],
+      ["Para qué los usamos", "Para crear tu cuenta, armar las quinielas con tus amigos, calcular el ranking y avisarte cuando cierra un sorteo o alguien te rebasa."],
+      ["Con quién los compartimos", "Con nadie para fines comerciales. Solo los proveedores que hacen funcionar la app (hospedaje y base de datos) los procesan en nuestro nombre."],
+      ["Tus derechos", "Puedes corregir tu nombre en Ajustes y eliminar tu cuenta en cualquier momento desde Ajustes → Eliminar cuenta."],
+    ],
+  },
+  terms: {
+    title: "Términos de uso",
+    body: [
+      ["Uso de la app", "Quinielapp es para organizar quinielas entre amigos y competir en el ranking. Debes ser mayor de edad para registrarte."],
+      ["Premios", "Los premios de los torneos oficiales se entregan según las reglas publicadas en cada torneo. Las quinielas privadas se organizan entre sus miembros."],
+      ["Conducta", "No se permiten mensajes ofensivos, spam ni suplantar a otras personas. Puedes reportar o bloquear a cualquiera desde el chat."],
+      ["Cambios", "Podemos actualizar estos términos; te avisaremos dentro de la app cuando haya cambios importantes."],
+    ],
+  },
+};
+
+function LegalScreen({ kind, onClose }) {
+  const doc = LEGAL[kind] || LEGAL.terms;
+  return (
+    <div style={{ position: "absolute", inset: 0, background: COLORS.bg, zIndex: 30, display: "flex", flexDirection: "column" }}>
+      <div style={{ padding: "18px 16px 14px", borderBottom: `1px solid ${COLORS.line}`, display: "flex", alignItems: "center", gap: 10 }}>
+        <button onClick={onClose} style={{ background: "none", border: "none", color: COLORS.creamDim, cursor: "pointer", fontSize: 18 }}>←</button>
+        <FileText size={16} color={COLORS.gold} />
+        <span style={{ color: COLORS.cream, fontWeight: 800, fontSize: 15 }}>{doc.title}</span>
+      </div>
+      <div style={{ padding: 18, overflowY: "auto", flex: 1 }}>
+        {doc.body.map(([h, t]) => (
+          <div key={h} style={{ marginBottom: 16 }}>
+            <div style={{ color: COLORS.cream, fontWeight: 700, fontSize: 13.5, marginBottom: 4 }}>{h}</div>
+            <div style={{ color: COLORS.creamDim, fontSize: 12.5, lineHeight: 1.6 }}>{t}</div>
+          </div>
+        ))}
+        <div style={{ color: COLORS.creamDim, fontSize: 10.5, marginTop: 8, opacity: 0.7 }}>Versión preliminar — el texto legal definitivo lo debe revisar un abogado antes del lanzamiento.</div>
+      </div>
+    </div>
+  );
+}
+
+function FriendsScreen({ onClose }) {
+  const [following, setFollowing] = useState(["Karla Ramírez"]);
+  const [copied, setCopied] = useState(false);
+  const people = [
+    { name: "Karla Ramírez", avatar: "🦊", mutual: 3 },
+    { name: "Diego Salas", avatar: "🐯", mutual: 5 },
+    { name: "Memo Torres", avatar: "🐼", mutual: 2 },
+    { name: "Ana Beltrán", avatar: "🐨", mutual: 1 },
+  ];
+  const toggle = (n) => setFollowing(prev => prev.includes(n) ? prev.filter(x => x !== n) : [...prev, n]);
+  const link = typeof window !== "undefined" ? `${window.location.origin}/?invita=amigos` : "";
+  const copy = () => {
+    try { navigator.clipboard?.writeText(link); } catch (e) {}
+    setCopied(true); setTimeout(() => setCopied(false), 1500);
+  };
+  return (
+    <div style={{ position: "absolute", inset: 0, background: COLORS.bg, zIndex: 10, display: "flex", flexDirection: "column" }}>
+      <div style={{ padding: "18px 16px 14px", borderBottom: `1px solid ${COLORS.line}`, display: "flex", alignItems: "center", gap: 10 }}>
+        <button onClick={onClose} style={{ background: "none", border: "none", color: COLORS.creamDim, cursor: "pointer", fontSize: 18 }}>←</button>
+        <span style={{ color: COLORS.cream, fontWeight: 800, fontSize: 15, flex: 1 }}>Amigos</span>
+        <span style={{ color: COLORS.creamDim, fontSize: 11 }}>Sigues a {following.length}</span>
+      </div>
+      <div style={{ padding: 14, overflowY: "auto", flex: 1 }}>
+        {people.map(f => {
+          const on = following.includes(f.name);
+          return (
+            <div key={f.name} style={{
+              display: "flex", alignItems: "center", gap: 12, background: COLORS.bgCard,
+              border: `1px solid ${COLORS.line}`, borderRadius: 12, padding: "11px 14px", marginBottom: 8,
+            }}>
+              <div style={{ fontSize: 22 }}>{f.avatar}</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ color: COLORS.cream, fontWeight: 700, fontSize: 13 }}>{f.name}</div>
+                <div style={{ color: COLORS.creamDim, fontSize: 11 }}>{f.mutual} amigos en común</div>
+              </div>
+              <button onClick={() => toggle(f.name)} style={{
+                background: on ? "transparent" : COLORS.goldSoft, border: `1px solid ${on ? COLORS.line : COLORS.gold + "66"}`,
+                borderRadius: 999, padding: "6px 12px", color: on ? COLORS.creamDim : COLORS.gold, fontWeight: 700, fontSize: 11, cursor: "pointer",
+              }}>{on ? "Siguiendo" : "Seguir"}</button>
+            </div>
+          );
+        })}
+        <button onClick={copy} style={{
+          width: "100%", marginTop: 10, background: copied ? COLORS.teal : COLORS.gold, border: "none", borderRadius: 12,
+          padding: "12px 0", color: copied ? COLORS.cream : COLORS.bg, fontWeight: 800, fontSize: 13, cursor: "pointer",
+        }}>{copied ? "¡Link copiado!" : "Copiar link para invitar amigos"}</button>
+      </div>
+    </div>
+  );
+}
+
 function HistoryScreen({ onClose }) {
   const [open, setOpen] = useState(null);
   return (
@@ -1799,6 +2065,7 @@ const AD_SPECS = {
 // un anunciante) entienda exactamente qué se está vendiendo y dónde vive.
 // Con un anuncio activo: lo muestra tal cual y registra impresión/clic.
 function AdBanner({ placement }) {
+  const { openAdvertise } = React.useContext(AppCtx);
   const [ad, setAd] = useState(undefined); // undefined = cargando, null = sin anuncio
   const spec = AD_SPECS[placement] || { w: 320, h: 100, label: "" };
 
@@ -1841,19 +2108,22 @@ function AdBanner({ placement }) {
     );
   }
 
+  // Sin anuncio contratado: en vez de una caja vacía, invitamos a anunciarse
+  // (abre la pantalla "Anúnciate con nosotros").
   return (
-    <div style={{
+    <button onClick={openAdvertise} style={{
       width: "100%", maxWidth: spec.w, aspectRatio: `${spec.w} / ${spec.h}`, margin: "0 auto 20px",
-      border: `1.5px dashed ${COLORS.line}`, borderRadius: 12, background: COLORS.bgCard,
-      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4,
+      border: `1px dashed ${COLORS.gold}55`, borderRadius: 12,
+      background: `linear-gradient(135deg, ${COLORS.goldSoft}, ${COLORS.bgCard})`, cursor: "pointer",
+      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, padding: 12,
+      boxSizing: "border-box",
     }}>
-      <span style={{ color: COLORS.creamDim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>
-        Espacio publicitario
+      <Megaphone size={18} color={COLORS.gold} />
+      <span style={{ color: COLORS.cream, fontSize: 12.5, fontWeight: 800 }}>Anúnciate aquí</span>
+      <span style={{ color: COLORS.creamDim, fontSize: 10.5, maxWidth: 220, lineHeight: 1.4 }}>
+        Pon tu marca frente a miles de quinieleros
       </span>
-      <span style={{ color: COLORS.creamDim, fontSize: 9, fontFamily: "var(--font-mono), 'Courier New', monospace", opacity: 0.6 }}>
-        {spec.label} · {placement}
-      </span>
-    </div>
+    </button>
   );
 }
 
@@ -2060,6 +2330,8 @@ function SportsRainBackdrop({ count = 56 }) {
 }
 
 function LoginScreen({ wide = false }) {
+  const { openLegal } = React.useContext(AppCtx);
+  const [showForgot, setShowForgot] = useState(false);
   const [mode, setMode] = useState("login"); // login | signup
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -2224,7 +2496,16 @@ function LoginScreen({ wide = false }) {
 
         {mode === "login" && (
           <div style={{ textAlign: "right", marginBottom: 18 }}>
-            <span style={{ color: COLORS.gold, fontSize: 11.5, fontWeight: 600, cursor: "pointer" }}>¿Olvidaste tu contraseña?</span>
+            <span onClick={() => setShowForgot(!showForgot)} style={{ color: COLORS.gold, fontSize: 11.5, fontWeight: 600, cursor: "pointer" }}>¿Olvidaste tu contraseña?</span>
+            {showForgot && (
+              <div style={{
+                textAlign: "left", marginTop: 8, background: COLORS.bgCard, border: `1px solid ${COLORS.line}`,
+                borderRadius: 10, padding: "10px 12px", color: COLORS.creamDim, fontSize: 11.5, lineHeight: 1.5,
+              }}>
+                La recuperación por correo todavía no está activa. Si tu cuenta usa el mismo correo que tu Google o Facebook,
+                entra con ese botón; si no, crea una cuenta nueva con <span onClick={() => { setShowForgot(false); setMode("signup"); }} style={{ color: COLORS.gold, fontWeight: 700, cursor: "pointer" }}>Regístrate</span>.
+              </div>
+            )}
           </div>
         )}
 
@@ -2252,7 +2533,7 @@ function LoginScreen({ wide = false }) {
 
       {mode === "signup" && (
         <div style={{ textAlign: "center", color: COLORS.creamDim, fontSize: 10, marginTop: 12, lineHeight: 1.6 }}>
-          Al crear tu cuenta aceptas los <span style={{ color: COLORS.gold, textDecoration: "underline", cursor: "pointer" }}>Términos de uso</span> y el <span style={{ color: COLORS.gold, textDecoration: "underline", cursor: "pointer" }}>Aviso de privacidad</span> de Quinielapp.
+          Al crear tu cuenta aceptas los <span onClick={() => openLegal("terms")} style={{ color: COLORS.gold, textDecoration: "underline", cursor: "pointer" }}>Términos de uso</span> y el <span onClick={() => openLegal("privacy")} style={{ color: COLORS.gold, textDecoration: "underline", cursor: "pointer" }}>Aviso de privacidad</span> de Quinielapp.
         </div>
       )}
     </>
@@ -2441,6 +2722,7 @@ function PlanScreen({ plan, onClose, onUpgrade }) {
 }
 
 function FriendsFoundScreen({ onContinue }) {
+  const [following, setFollowing] = useState([]);
   const found = [
     { name: "Karla Ramírez", mutual: 3, avatar: "🦊" },
     { name: "Diego Salas", mutual: 5, avatar: "🐯" },
@@ -2472,10 +2754,11 @@ function FriendsFoundScreen({ onContinue }) {
               <div style={{ color: COLORS.cream, fontWeight: 700, fontSize: 13 }}>{f.name}</div>
               <div style={{ color: COLORS.creamDim, fontSize: 11 }}>{f.mutual} amigos en común</div>
             </div>
-            <button style={{
-              background: COLORS.goldSoft, border: `1px solid ${COLORS.gold}66`, borderRadius: 999,
-              padding: "6px 12px", color: COLORS.gold, fontWeight: 700, fontSize: 11, cursor: "pointer",
-            }}>Seguir</button>
+            <button onClick={() => setFollowing(prev => prev.includes(f.name) ? prev.filter(x => x !== f.name) : [...prev, f.name])} style={{
+              background: following.includes(f.name) ? "transparent" : COLORS.goldSoft,
+              border: `1px solid ${following.includes(f.name) ? COLORS.line : COLORS.gold + "66"}`, borderRadius: 999,
+              padding: "6px 12px", color: following.includes(f.name) ? COLORS.creamDim : COLORS.gold, fontWeight: 700, fontSize: 11, cursor: "pointer",
+            }}>{following.includes(f.name) ? "Siguiendo" : "Seguir"}</button>
           </div>
         ))}
       </div>
@@ -2576,7 +2859,21 @@ function InviteFriendsScreen({ q, onClose }) {
     setInvited(prev => prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name]);
   };
 
-  const link = `miquiniela.app/j/${q ? q.id : "xyz"}`;
+  const [contactsMsg, setContactsMsg] = useState("");
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const link = `${origin}/?unirse=${q ? (q.code || q.id) : "amigos"}`;
+  const pickContacts = async () => {
+    if (typeof navigator !== "undefined" && navigator.contacts && navigator.contacts.select) {
+      try {
+        const picked = await navigator.contacts.select(["name"], { multiple: true });
+        const names = picked.map(c => (c.name && c.name[0]) || "Contacto").filter(Boolean);
+        setInvited(prev => [...new Set([...prev, ...names])]);
+        setContactsMsg(names.length ? `Invitaste a ${names.length} contacto(s).` : "No elegiste ningún contacto.");
+      } catch (e) { setContactsMsg("No se pudo abrir tus contactos."); }
+    } else {
+      setContactsMsg("Tu navegador no deja leer contactos. Copia el link desde la pestaña Link y compártelo por WhatsApp.");
+    }
+  };
   const slots = q ? q.max - q.members : 15;
 
   return (
@@ -2650,7 +2947,7 @@ function InviteFriendsScreen({ q, onClose }) {
               background: COLORS.bg, padding: "8px 12px", borderRadius: 8, marginTop: 6, wordBreak: "break-all", textAlign: "center",
             }}>{link}</div>
           </div>
-          <button onClick={() => { setCopied(true); setTimeout(() => setCopied(false), 1500); }} style={{
+          <button onClick={() => { try { navigator.clipboard?.writeText(link); } catch (e) {} setCopied(true); setTimeout(() => setCopied(false), 1500); }} style={{
             width: "100%", background: copied ? COLORS.teal : COLORS.gold, border: "none", borderRadius: 12,
             padding: "13px 0", color: copied ? COLORS.cream : COLORS.bg, fontWeight: 800, fontSize: 14, cursor: "pointer",
           }}>{copied ? "¡Copiado!" : "Copiar link"}</button>
@@ -2667,10 +2964,11 @@ function InviteFriendsScreen({ q, onClose }) {
           <div style={{ color: COLORS.creamDim, fontSize: 12, marginBottom: 16, maxWidth: 260 }}>
             Te avisamos qué contactos de tu teléfono ya usan Quinielapp para invitarlos directo.
           </div>
-          <button style={{
+          <button onClick={pickContacts} style={{
             background: COLORS.gold, border: "none", borderRadius: 999, padding: "10px 20px",
             color: COLORS.bg, fontWeight: 800, fontSize: 12.5, cursor: "pointer",
           }}>Permitir acceso a contactos</button>
+          {contactsMsg && <div style={{ color: COLORS.creamDim, fontSize: 11.5, marginTop: 12, maxWidth: 280 }}>{contactsMsg}</div>}
         </div>
       )}
 
@@ -2763,7 +3061,8 @@ function AciertosChart() {
 
 // Panel exclusivo de escritorio: estadísticas y contexto que en el teléfono no
 // caben sin saturar la pantalla — aquí sí hay espacio de sobra para mostrarlas.
-function DesktopRightPanel() {
+function DesktopRightPanel({ notifications = NOTIFICATIONS }) {
+  const { go, openNotifications } = React.useContext(AppCtx);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <AdBanner placement="desktop_sidebar" />
@@ -2775,7 +3074,10 @@ function DesktopRightPanel() {
       </div>
 
       <div style={{ background: COLORS.bgCard, border: `1px solid ${COLORS.line}`, borderRadius: 16, padding: 18 }}>
-        <div style={{ color: COLORS.creamDim, fontSize: 11, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Top ranking global</div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <span style={{ color: COLORS.creamDim, fontSize: 11, textTransform: "uppercase", letterSpacing: 1 }}>Top ranking global</span>
+          <button onClick={() => go("ranking")} style={{ background: "none", border: "none", color: COLORS.gold, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Ver todo →</button>
+        </div>
         {GLOBAL_RANKING.slice(0, 5).map(p => (
           <div key={p.rank} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 0" }}>
             <span style={{ width: 16, textAlign: "center", fontFamily: "var(--font-mono), 'Courier New', monospace", color: p.rank === 1 ? COLORS.gold : COLORS.creamDim, fontWeight: 800, fontSize: 12 }}>{p.rank}</span>
@@ -2787,9 +3089,12 @@ function DesktopRightPanel() {
       </div>
 
       <div style={{ background: COLORS.bgCard, border: `1px solid ${COLORS.line}`, borderRadius: 16, padding: 18 }}>
-        <div style={{ color: COLORS.creamDim, fontSize: 11, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Actividad reciente</div>
-        {NOTIFICATIONS.slice(0, 4).map(n => (
-          <div key={n.id} style={{ display: "flex", gap: 10, padding: "7px 0", alignItems: "flex-start" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <span style={{ color: COLORS.creamDim, fontSize: 11, textTransform: "uppercase", letterSpacing: 1 }}>Actividad reciente</span>
+          <button onClick={openNotifications} style={{ background: "none", border: "none", color: COLORS.gold, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Ver todo →</button>
+        </div>
+        {notifications.slice(0, 4).map(n => (
+          <div key={n.id} onClick={openNotifications} style={{ display: "flex", gap: 10, padding: "7px 0", alignItems: "flex-start", cursor: "pointer" }}>
             <span style={{ fontSize: 15 }}>{n.icon}</span>
             <div style={{ flex: 1 }}>
               <div style={{ color: COLORS.cream, fontSize: 11.5, lineHeight: 1.4 }}>{n.title}</div>
@@ -2807,12 +3112,12 @@ function DesktopRightPanel() {
 // nada se duplica, solo se le da más aire y más contexto al mismo contenido.
 function DesktopDashboard(props) {
   return (
-    <div style={{ display: "flex", gap: 28, alignItems: "flex-start", maxWidth: 1040, margin: "0 auto" }}>
+    <div style={{ display: "flex", gap: 28, alignItems: "flex-start", maxWidth: 1240, margin: "0 auto" }}>
       <div style={{ flex: "1 1 620px", minWidth: 0 }}>
         <HomeScreen {...props} />
       </div>
-      <div style={{ flex: "0 0 300px" }}>
-        <DesktopRightPanel />
+      <div style={{ flex: "0 0 320px" }}>
+        <DesktopRightPanel notifications={props.notifications} />
       </div>
     </div>
   );
@@ -2832,8 +3137,43 @@ export default function MiQuinielaApp() {
   const [showHistory, setShowHistory] = useState(false);
   const [showAdvertise, setShowAdvertise] = useState(false);
   const [joinedGlobal, setJoinedGlobal] = useState(false);
+  const [quinielas, setQuinielas] = useState(QUINIELAS);
+  const [notifications, setNotifications] = useState(NOTIFICATIONS);
+  const [showFriends, setShowFriends] = useState(false);
+  const [legal, setLegal] = useState(null); // "privacy" | "terms" | null
+  const [joinCode, setJoinCode] = useState("");
 
-  const unreadCount = NOTIFICATIONS.filter(n => n.unread).length;
+  const unreadCount = notifications.filter(n => n.unread).length;
+  const userName = (session?.user?.name || "").trim().split(/\s+/)[0] || "Tú";
+
+  // Link de invitación (?unirse=CODIGO): al entrar, manda a la pestaña de
+  // Quinielas con el código ya escrito en "Unirme con código".
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const c = new URLSearchParams(window.location.search).get("unirse");
+    if (c) { setJoinCode(c); setTab("quinielas"); }
+  }, []);
+
+  const addQuiniela = (q) => setQuinielas(prev => [{ status: "Por comenzar", leader: "—", you: null, pot: q.members || 1, ...q }, ...prev]);
+  const closeNotifications = () => {
+    setShowNotifications(false);
+    setNotifications(prev => prev.map(n => ({ ...n, unread: false })));
+  };
+  const go = (t) => { setOpenQuiniela(null); setTab(t); };
+  const ctx = {
+    userName, go,
+    openAdvertise: () => setShowAdvertise(true),
+    openLegal: (k) => setLegal(k),
+    openFriends: () => setShowFriends(true),
+    openHistory: () => setShowHistory(true),
+    openNotifications: () => setShowNotifications(true),
+  };
+  const anyModal = showCreate || !!showInviteAfterCreate || showPlan || showNotifications || showHistory ||
+    showAdvertise || showSettings || showFriends || !!legal;
+  const closeAll = () => {
+    setShowCreate(false); setShowInviteAfterCreate(null); setShowPlan(false); closeNotifications();
+    setShowHistory(false); setShowAdvertise(false); setShowSettings(false); setShowFriends(false); setLegal(null);
+  };
   const isDesktop = useIsDesktop();
   const fromFacebook = session?.provider === "facebook";
 
@@ -2862,6 +3202,11 @@ export default function MiQuinielaApp() {
     onOpenQuiniela: setOpenQuiniela, onCreate: () => setShowCreate(true),
     fromFacebook, plan, onOpenPlan: () => setShowPlan(true),
     onOpenNotifications: () => setShowNotifications(true), unreadCount,
+    quinielas, notifications,
+  };
+  const quinielasProps = {
+    quinielas, onOpenQuiniela: setOpenQuiniela, onCreate: () => setShowCreate(true),
+    onJoin: (q) => { addQuiniela(q); setOpenQuiniela(q); }, initialCode: joinCode,
   };
 
   const modals = (
@@ -2869,7 +3214,7 @@ export default function MiQuinielaApp() {
       {showCreate && (
         <CreateQuinielaModal
           onClose={() => setShowCreate(false)}
-          onCreated={(newQ) => { setShowCreate(false); setShowInviteAfterCreate(newQ); }}
+          onCreated={(newQ) => { setShowCreate(false); addQuiniela(newQ); setShowInviteAfterCreate(newQ); }}
           plan={plan}
           onOpenPlan={() => setShowPlan(true)}
         />
@@ -2880,7 +3225,8 @@ export default function MiQuinielaApp() {
       {showPlan && (
         <PlanScreen plan={plan} onClose={() => setShowPlan(false)} onUpgrade={() => { setPlan("premium"); setShowPlan(false); }} />
       )}
-      {showNotifications && <NotificationsScreen onClose={() => setShowNotifications(false)} />}
+      {showNotifications && <NotificationsScreen items={notifications} onClose={closeNotifications} />}
+      {showFriends && <FriendsScreen onClose={() => setShowFriends(false)} />}
       {showHistory && <HistoryScreen onClose={() => setShowHistory(false)} />}
       {showAdvertise && <AdvertiseScreen onClose={() => setShowAdvertise(false)} />}
       {showSettings && (
@@ -2893,6 +3239,7 @@ export default function MiQuinielaApp() {
           onDeleteAccount={() => { setShowSettings(false); setPlan("free"); signOut(); }}
         />
       )}
+      {legal && <LegalScreen kind={legal} onClose={() => setLegal(null)} />}
     </>
   );
 
@@ -2905,6 +3252,7 @@ export default function MiQuinielaApp() {
 
   if (isDesktop) {
     return (
+      <AppCtx.Provider value={ctx}>
       <div style={{
         width: "100%", minHeight: "100vh", background: COLORS.bg, position: "relative",
         overflow: "hidden", fontFamily: "var(--font-display), 'Helvetica Neue', Arial, sans-serif",
@@ -2952,27 +3300,50 @@ export default function MiQuinielaApp() {
             <SidebarNav tab={tab} setTab={setTab} />
             <div style={{ flex: 1, padding: "36px 40px", overflowY: "auto", height: "100vh" }}>
               {tab === "home" && <DesktopDashboard {...homeProps} />}
-              {tab === "quinielas" && <DesktopDashboard {...homeProps} />}
+              {tab === "quinielas" && (
+                <div style={{ maxWidth: 1240, margin: "0 auto" }}>
+                  <QuinielasScreen {...quinielasProps} wide />
+                </div>
+              )}
               {tab === "ranking" && (
-                <div style={{ maxWidth: 640, margin: "0 auto" }}>
+                <div style={{ maxWidth: 880, margin: "0 auto", position: "relative", minHeight: "calc(100vh - 72px)" }}>
                   <RankingScreen onJoinGlobal={() => setJoinedGlobal(true)} joinedGlobal={joinedGlobal} />
                 </div>
               )}
               {tab === "profile" && (
-                <div style={{ maxWidth: 520, margin: "0 auto" }}>
+                <div style={{ maxWidth: 640, margin: "0 auto" }}>
                   <ProfileScreen plan={plan} onOpenPlan={() => setShowPlan(true)} onOpenHistory={() => setShowHistory(true)} onOpenSettings={() => setShowSettings(true)} onOpenAdvertise={() => setShowAdvertise(true)} />
                 </div>
               )}
             </div>
           </div>
         )}
-        {modals}
+        {/* En escritorio las pantallas secundarias (notificaciones, ajustes,
+            crear quiniela...) se abren en un panel centrado tipo diálogo, no
+            estiradas a todo lo ancho de la ventana. */}
+        {anyModal && (
+          <div onClick={closeAll} style={{
+            position: "fixed", inset: 0, zIndex: 50, background: "rgba(0,0,0,0.6)",
+            backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)",
+            display: "flex", alignItems: "center", justifyContent: "center", padding: 24,
+          }}>
+            <div onClick={e => e.stopPropagation()} style={{
+              position: "relative", width: "100%", maxWidth: 480, height: "min(820px, calc(100vh - 48px))",
+              background: COLORS.bg, border: `1px solid ${COLORS.line}`, borderRadius: 20, overflow: "hidden",
+              display: "flex", flexDirection: "column", boxShadow: "0 30px 90px rgba(0,0,0,0.6)",
+            }}>
+              {modals}
+            </div>
+          </div>
+        )}
       </div>
+      </AppCtx.Provider>
     );
   }
 
   // ---------- Teléfono: el marco angosto de siempre, sin cambios ----------
   return (
+    <AppCtx.Provider value={ctx}>
     <div style={{
       width: "100%", minHeight: "100vh", display: "flex", justifyContent: "center",
       background: "#050d09", fontFamily: "var(--font-display), 'Helvetica Neue', Arial, sans-serif",
@@ -2991,7 +3362,7 @@ export default function MiQuinielaApp() {
           ) : (
             <>
               {tab === "home" && <HomeScreen {...homeProps} />}
-              {tab === "quinielas" && <HomeScreen {...homeProps} />}
+              {tab === "quinielas" && <QuinielasScreen {...quinielasProps} />}
               {tab === "ranking" && <RankingScreen onJoinGlobal={() => setJoinedGlobal(true)} joinedGlobal={joinedGlobal} />}
               {tab === "profile" && <ProfileScreen plan={plan} onOpenPlan={() => setShowPlan(true)} onOpenHistory={() => setShowHistory(true)} onOpenSettings={() => setShowSettings(true)} onOpenAdvertise={() => setShowAdvertise(true)} />}
               <BottomNav tab={tab} setTab={setTab} />
@@ -3001,5 +3372,6 @@ export default function MiQuinielaApp() {
         {modals}
       </div>
     </div>
+    </AppCtx.Provider>
   );
 }
