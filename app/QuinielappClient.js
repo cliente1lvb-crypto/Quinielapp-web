@@ -1705,6 +1705,29 @@ function FacebookIcon({ size = 16, color = "#fff" }) {
   );
 }
 
+// Símbolo de marca de Quinielapp: un boleto en miniatura con sus casillas L/E/V
+// (homenaje a la boleta clásica de Progol) — reemplaza el trofeo genérico en
+// todos los lugares donde antes iba como logo de la marca (login, sidebar).
+// El trofeo se queda donde de verdad significa "trofeo/ganador" (tarjetas de
+// puntos, tab de Quinielas), esto es solo la marca.
+function TicketLogo({ size = 28, color = COLORS.gold }) {
+  const s = size / 46; // el diseño original se hizo a 46px de alto
+  return (
+    <svg width={size * (34 / 46)} height={size} viewBox="0 0 34 46">
+      <rect x="0.9" y="0.9" width="32.2" height="44.2" rx="4" fill="none" stroke={color} strokeWidth={1.8} />
+      <line x1="0.9" y1="11" x2="33.1" y2="11" stroke={color} strokeWidth={1.4} />
+      <g stroke={color} strokeWidth={1.1} fill="none">
+        <rect x="10" y="15" width="5" height="5" rx="1" /><rect x="17" y="15" width="5" height="5" rx="1" /><rect x="24" y="15" width="5" height="5" rx="1" />
+        <rect x="10" y="23" width="5" height="5" rx="1" /><rect x="17" y="23" width="5" height="5" rx="1" /><rect x="24" y="23" width="5" height="5" rx="1" />
+        <rect x="10" y="31" width="5" height="5" rx="1" /><rect x="17" y="31" width="5" height="5" rx="1" /><rect x="24" y="31" width="5" height="5" rx="1" />
+      </g>
+      <rect x="10" y="15" width="5" height="5" rx="1" fill={color} />
+      <rect x="24" y="23" width="5" height="5" rx="1" fill={color} />
+      <rect x="17" y="31" width="5" height="5" rx="1" fill={color} />
+    </svg>
+  );
+}
+
 function GoogleIcon({ size = 16 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24">
@@ -1767,9 +1790,9 @@ function LoginScreen() {
             width: 60, height: 60, borderRadius: 16, background: COLORS.goldSoft, border: `1.5px solid ${COLORS.gold}`,
             display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 14,
           }}>
-            <Trophy size={28} color={COLORS.gold} strokeWidth={1.8} />
+            <TicketLogo size={30} />
           </div>
-          <div style={{ color: COLORS.cream, fontWeight: 800, fontSize: 20, letterSpacing: 0.3 }}>Quinielapp</div>
+          <div style={{ color: COLORS.cream, fontWeight: 700, fontSize: 20, letterSpacing: -0.3 }}>Quinielapp</div>
           <div style={{ color: COLORS.creamDim, fontSize: 12, marginTop: 4 }}>Arma la quiniela con tu banda</div>
         </div>
 
@@ -2264,9 +2287,9 @@ function SidebarNav({ tab, setTab }) {
           width: 34, height: 34, borderRadius: 10, background: COLORS.goldSoft,
           border: `1.5px solid ${COLORS.gold}`, display: "flex", alignItems: "center", justifyContent: "center",
         }}>
-          <Trophy size={17} color={COLORS.gold} />
+          <TicketLogo size={18} />
         </div>
-        <span style={{ color: COLORS.cream, fontWeight: 800, fontSize: 15 }}>Quinielapp</span>
+        <span style={{ color: COLORS.cream, fontWeight: 700, fontSize: 15, letterSpacing: -0.2 }}>Quinielapp</span>
       </div>
       {items.map(it => {
         const active = tab === it.id;

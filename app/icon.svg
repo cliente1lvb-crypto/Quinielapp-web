@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="15" fill="#0A0D0B"/>
+  <g transform="translate(15,9)">
+    <rect x="0.9" y="0.9" width="32.2" height="44.2" rx="4" fill="none" stroke="#2BE87A" stroke-width="2"/>
+    <line x1="0.9" y1="11" x2="33.1" y2="11" stroke="#2BE87A" stroke-width="1.6"/>
+    <g stroke="#2BE87A" stroke-width="1.3" fill="none">
+      <rect x="10" y="15" width="5" height="5" rx="1"/><rect x="17" y="15" width="5" height="5" rx="1"/><rect x="24" y="15" width="5" height="5" rx="1"/>
+      <rect x="10" y="23" width="5" height="5" rx="1"/><rect x="17" y="23" width="5" height="5" rx="1"/><rect x="24" y="23" width="5" height="5" rx="1"/>
+      <rect x="10" y="31" width="5" height="5" rx="1"/><rect x="17" y="31" width="5" height="5" rx="1"/><rect x="24" y="31" width="5" height="5" rx="1"/>
+    </g>
+    <rect x="10" y="15" width="5" height="5" rx="1" fill="#2BE87A"/>
+    <rect x="24" y="23" width="5" height="5" rx="1" fill="#2BE87A"/>
+    <rect x="17" y="31" width="5" height="5" rx="1" fill="#2BE87A"/>
+  </g>
+</svg>
