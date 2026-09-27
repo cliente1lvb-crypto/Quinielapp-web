@@ -1984,10 +1984,10 @@ function FallingTicket({ seed }) {
 const SPORT_KINDS = ["soccer", "basket", "football", "baseball", "tennis", "volley"];
 const SPORT_TINTS = [COLORS.gold, COLORS.cream, COLORS.teal, "#F5B83D"];
 
-function SportsRainBackdrop({ count = 38 }) {
+function SportsRainBackdrop({ count = 56 }) {
   const items = Array.from({ length: count }, (_, i) => {
     const r = (k) => seededRand(i * 31 + k);
-    const isTicket = i % 3 === 1;
+    const isTicket = i % 4 === 1;
     const near = r(1) > 0.55; // capa cercana: más grande, más visible y más rápida
     const duration = (near ? 11 : 17) + r(2) * 10;
     const r0 = Math.round(r(3) * 360);
@@ -1999,11 +1999,11 @@ function SportsRainBackdrop({ count = 38 }) {
       delay: -r(7) * duration, // negativo: al cargar ya hay cosas a media caída
       sway: 10 + r(8) * 26,
       swayDur: 2.8 + r(9) * 3,
-      size: isTicket ? 1 : Math.round((near ? 30 : 18) + r(10) * (near ? 30 : 16)),
+      size: isTicket ? 1 : Math.round((near ? 34 : 20) + r(10) * (near ? 34 : 18)),
       scale: isTicket ? (near ? 0.95 + r(11) * 0.3 : 0.6 + r(11) * 0.2) : 1,
       kind: SPORT_KINDS[Math.floor(r(12) * SPORT_KINDS.length)],
       tint: SPORT_TINTS[Math.floor(r(13) * SPORT_TINTS.length)],
-      opacity: near ? 0.5 + r(14) * 0.25 : 0.22 + r(14) * 0.15,
+      opacity: near ? 0.7 + r(14) * 0.3 : 0.35 + r(14) * 0.2,
       r0, r1: r0 + spin,
     };
   });
@@ -2035,7 +2035,7 @@ function SportsRainBackdrop({ count = 38 }) {
           position: "absolute", top: 0, left: `${it.left}%`,
           "--r0": `${it.r0}deg`, "--r1": `${it.r1}deg`,
           animation: `qa-fall ${it.duration}s linear ${it.delay}s infinite`,
-          opacity: it.opacity, filter: it.near ? "none" : "blur(1.2px)",
+          opacity: it.opacity, filter: it.near ? "none" : "blur(0.8px)",
           willChange: "transform",
         }}>
           <div className="qa-sway" style={{
@@ -2053,7 +2053,7 @@ function SportsRainBackdrop({ count = 38 }) {
           ver la lluvia con más fuerza en las orillas */}
       <div style={{
         position: "absolute", inset: 0,
-        background: "radial-gradient(ellipse 38% 60% at 50% 50%, rgba(10,13,11,0.82), rgba(10,13,11,0.35) 70%, rgba(10,13,11,0.15) 100%)",
+        background: "radial-gradient(ellipse 34% 58% at 50% 50%, rgba(10,13,11,0.75), rgba(10,13,11,0.25) 70%, rgba(10,13,11,0.05) 100%)",
       }} />
     </div>
   );
@@ -2184,7 +2184,7 @@ function LoginScreen() {
             <input value={name} onChange={e => setName(e.target.value)} placeholder="Tu nombre" type="text"
               style={{
                 width: "100%", background: COLORS.bgCard, border: `1px solid ${COLORS.line}`, borderRadius: 10,
-                padding: "11px 12px", color: COLORS.cream, fontSize: 13, marginTop: 6, marginBottom: 14, outline: "none",
+                padding: "11px 12px", color: COLORS.cream, fontSize: 13, marginTop: 6, boxSizing: "border-box", marginBottom: 14, outline: "none",
               }} />
           </>
         )}
@@ -2193,7 +2193,7 @@ function LoginScreen() {
         <input value={email} onChange={e => setEmail(e.target.value)} placeholder="tu@correo.com" type="email"
           style={{
             width: "100%", background: COLORS.bgCard, border: `1px solid ${COLORS.line}`, borderRadius: 10,
-            padding: "11px 12px", color: COLORS.cream, fontSize: 13, marginTop: 6, marginBottom: 14, outline: "none",
+            padding: "11px 12px", color: COLORS.cream, fontSize: 13, marginTop: 6, boxSizing: "border-box", marginBottom: 14, outline: "none",
           }} />
 
         {mode === "signup" && (
@@ -2202,7 +2202,7 @@ function LoginScreen() {
             <input value={birthdate} onChange={e => setBirthdate(e.target.value)} type="date"
               style={{
                 width: "100%", background: COLORS.bgCard, border: `1px solid ${COLORS.line}`, borderRadius: 10,
-                padding: "11px 12px", color: COLORS.cream, fontSize: 13, marginTop: 6, marginBottom: 14, outline: "none",
+                padding: "11px 12px", color: COLORS.cream, fontSize: 13, marginTop: 6, boxSizing: "border-box", marginBottom: 14, outline: "none",
                 colorScheme: "dark",
               }} />
           </>
@@ -2212,7 +2212,7 @@ function LoginScreen() {
         <input value={pass} onChange={e => setPass(e.target.value)} placeholder="••••••••" type="password"
           style={{
             width: "100%", background: COLORS.bgCard, border: `1px solid ${COLORS.line}`, borderRadius: 10,
-            padding: "11px 12px", color: COLORS.cream, fontSize: 13, marginTop: 6, marginBottom: mode === "login" ? 8 : 14, outline: "none",
+            padding: "11px 12px", color: COLORS.cream, fontSize: 13, marginTop: 6, boxSizing: "border-box", marginBottom: mode === "login" ? 8 : 14, outline: "none",
           }} />
 
         {mode === "login" && (
