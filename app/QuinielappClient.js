@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { useSession, signIn, signOut } from "next-auth/react";
-import { Trophy, Plus, Users, MessageCircle, Home as HomeIcon, X, Send, Crown, ChevronRight, Settings, Shield, Smile, Bell, LogOut, Camera, Inbox, BarChart3, Trash2, Flag, MoreVertical } from "lucide-react";
+import { Trophy, Plus, Users, MessageCircle, Home as HomeIcon, X, Send, Crown, ChevronRight, Settings, Shield, Smile, Bell, LogOut, Camera, Inbox, BarChart3, Trash2, Flag, MoreVertical, Megaphone, Mail } from "lucide-react";
 
 // ---------- Design tokens ----------
 // Estilo casa de apuestas: negro profundo, verde neón como acento "momios", rojo vivo para en vivo
@@ -604,6 +604,8 @@ function RankingScreen({ onJoinGlobal, joinedGlobal }) {
         <>
           <GlobalQuinielaCard joinedGlobal={joinedGlobal} onJoinGlobal={onJoinGlobal} />
 
+          <AdBanner placement="ranking_banner" />
+
           <div style={{ color: COLORS.creamDim, fontSize: 11, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Top jugadores del sorteo</div>
           {GLOBAL_RANKING.map(p => (
             <div key={p.rank} style={{
@@ -762,6 +764,8 @@ function HomeScreen({ onOpenQuiniela, onCreate, fromFacebook, plan, onOpenPlan, 
           <div style={{ color: COLORS.cream, fontSize: 11.5, fontWeight: 700, marginTop: 3 }}>Vas en el lugar #{YOU_GLOBAL.rank}</div>
         </div>
       </div>
+
+      <AdBanner placement="home_banner" />
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
         <span style={{ color: COLORS.cream, fontWeight: 700, fontSize: 15 }}>Tus quinielas</span>
@@ -1403,7 +1407,7 @@ function CreateQuinielaModal({ onClose, onCreated, plan, onOpenPlan }) {
   );
 }
 
-function ProfileScreen({ plan, onOpenPlan, onOpenHistory, onOpenSettings }) {
+function ProfileScreen({ plan, onOpenPlan, onOpenHistory, onOpenSettings, onOpenAdvertise }) {
   return (
     <div style={{ padding: 20, overflowY: "auto", flex: 1 }}>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 20 }}>
@@ -1425,7 +1429,7 @@ function ProfileScreen({ plan, onOpenPlan, onOpenHistory, onOpenSettings }) {
         <span style={{ color: COLORS.cream, fontSize: 13, fontWeight: 700, flex: 1, textAlign: "left" }}>Mi plan y suscripción</span>
         <ChevronRight size={16} color={COLORS.creamDim} />
       </button>
-      {[["Historial de quinielas", Trophy, onOpenHistory], ["Amigos", Users, null], ["Ajustes", Settings, onOpenSettings]].map(([label, Icon, action]) => (
+      {[["Historial de quinielas", Trophy, onOpenHistory], ["Amigos", Users, null], ["Anúnciate con nosotros", Megaphone, onOpenAdvertise], ["Ajustes", Settings, onOpenSettings]].map(([label, Icon, action]) => (
         <button key={label} onClick={action || undefined} style={{
           width: "100%", display: "flex", alignItems: "center", gap: 12, background: COLORS.bgCard,
           border: `1px solid ${COLORS.line}`, borderRadius: 12, padding: "13px 14px", marginBottom: 8,
@@ -1645,6 +1649,78 @@ function SettingsScreen({ onClose, plan, onDowngrade, onLogout, onDeleteAccount 
   );
 }
 
+function AdvertiseScreen({ onClose }) {
+  const [sent, setSent] = useState(false);
+  const [company, setCompany] = useState("");
+  const [email, setEmail] = useState("");
+
+  const placements = [
+    { key: "home_banner", name: "Banner de Inicio", size: "320×100", where: "Entre tu tablero y la lista de tus quinielas — lo primero que ve cada usuario al abrir la app." },
+    { key: "ranking_banner", name: "Banner de Ranking", size: "320×100", where: "Debajo de la Quiniela Global, antes de la tabla de posiciones — audiencia de usuarios competitivos y muy activos." },
+    { key: "desktop_sidebar", name: "Rectángulo de escritorio", size: "300×250", where: "Panel lateral fijo del dashboard de escritorio, junto a las estadísticas del usuario. El formato más vendido de la industria." },
+  ];
+
+  return (
+    <div style={{ position: "absolute", inset: 0, background: COLORS.bg, zIndex: 10, display: "flex", flexDirection: "column" }}>
+      <div style={{ padding: "18px 16px 14px", borderBottom: `1px solid ${COLORS.line}`, display: "flex", alignItems: "center", gap: 10 }}>
+        <button onClick={onClose} style={{ background: "none", border: "none", color: COLORS.creamDim, cursor: "pointer", fontSize: 18 }}>←</button>
+        <span style={{ color: COLORS.cream, fontWeight: 700, fontSize: 15 }}>Anúnciate con nosotros</span>
+      </div>
+
+      <div style={{ padding: 20, overflowY: "auto", flex: 1 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+          <Megaphone size={22} color={COLORS.gold} />
+          <div style={{ color: COLORS.cream, fontWeight: 700, fontSize: 16 }}>Llega a la comunidad de Quinielapp</div>
+        </div>
+        <p style={{ color: COLORS.creamDim, fontSize: 12.5, lineHeight: 1.6, marginBottom: 22 }}>
+          Usuarios que revisan resultados varias veces por semana, dentro de sus propias quinielas con amigos y en la Quiniela Global. Estos son los espacios disponibles hoy:
+        </p>
+
+        {placements.map(p => (
+          <div key={p.key} style={{ background: COLORS.bgCard, border: `1px solid ${COLORS.line}`, borderRadius: 14, padding: 16, marginBottom: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+              <span style={{ color: COLORS.cream, fontWeight: 700, fontSize: 13.5 }}>{p.name}</span>
+              <span style={{ color: COLORS.gold, fontSize: 11, fontFamily: "var(--font-mono), monospace", fontWeight: 700 }}>{p.size}</span>
+            </div>
+            <div style={{ color: COLORS.creamDim, fontSize: 11.5, lineHeight: 1.5 }}>{p.where}</div>
+          </div>
+        ))}
+
+        <div style={{ height: 1, background: COLORS.line, margin: "20px 0" }} />
+
+        {sent ? (
+          <div style={{ textAlign: "center", padding: "20px 0" }}>
+            <div style={{ fontSize: 28, marginBottom: 8 }}>✅</div>
+            <div style={{ color: COLORS.cream, fontWeight: 700, fontSize: 14 }}>¡Gracias, {company}!</div>
+            <div style={{ color: COLORS.creamDim, fontSize: 12, marginTop: 6 }}>Te contactamos a {email} para armar tu campaña.</div>
+          </div>
+        ) : (
+          <>
+            <div style={{ color: COLORS.creamDim, fontSize: 11, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>¿Te interesa? Déjanos tus datos</div>
+            <label style={{ color: COLORS.creamDim, fontSize: 11 }}>Empresa o marca</label>
+            <input value={company} onChange={e => setCompany(e.target.value)} placeholder="Nombre de tu empresa" style={{
+              width: "100%", background: COLORS.bgCard, border: `1px solid ${COLORS.line}`, borderRadius: 10,
+              padding: "10px 12px", color: COLORS.cream, fontSize: 13, marginTop: 6, marginBottom: 14, outline: "none",
+            }} />
+            <label style={{ color: COLORS.creamDim, fontSize: 11 }}>Correo de contacto</label>
+            <input value={email} onChange={e => setEmail(e.target.value)} type="email" placeholder="tu@empresa.com" style={{
+              width: "100%", background: COLORS.bgCard, border: `1px solid ${COLORS.line}`, borderRadius: 10,
+              padding: "10px 12px", color: COLORS.cream, fontSize: 13, marginTop: 6, marginBottom: 18, outline: "none",
+            }} />
+            <button onClick={() => company.trim() && email.trim() && setSent(true)} disabled={!company.trim() || !email.trim()} style={{
+              width: "100%", background: (company.trim() && email.trim()) ? COLORS.gold : COLORS.line, border: "none",
+              borderRadius: 12, padding: "13px 0", color: (company.trim() && email.trim()) ? COLORS.bg : COLORS.creamDim,
+              fontWeight: 700, fontSize: 13.5, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+            }}>
+              <Mail size={15} /> Solicitar información
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function HistoryScreen({ onClose }) {
   const [open, setOpen] = useState(null);
   return (
@@ -1710,6 +1786,77 @@ function FacebookIcon({ size = 16, color = "#fff" }) {
 // todos los lugares donde antes iba como logo de la marca (login, sidebar).
 // El trofeo se queda donde de verdad significa "trofeo/ganador" (tarjetas de
 // puntos, tab de Quinielas), esto es solo la marca.
+// Tamaños estándar de la industria por placement — ver README sección
+// "Publicidad" para el detalle completo que le compartirías a un anunciante.
+const AD_SPECS = {
+  home_banner: { w: 320, h: 100, label: "320×100" },
+  ranking_banner: { w: 320, h: 100, label: "320×100" },
+  desktop_sidebar: { w: 300, h: 250, label: "300×250" },
+};
+
+// Espacio publicitario. Sin anuncio configurado en /api/ads: se ve como
+// placeholder con el tamaño esperado, para que cualquiera (tú, un inversionista,
+// un anunciante) entienda exactamente qué se está vendiendo y dónde vive.
+// Con un anuncio activo: lo muestra tal cual y registra impresión/clic.
+function AdBanner({ placement }) {
+  const [ad, setAd] = useState(undefined); // undefined = cargando, null = sin anuncio
+  const spec = AD_SPECS[placement] || { w: 320, h: 100, label: "" };
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/ads?placement=${placement}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled) return;
+        setAd(data.ad || null);
+        if (data.ad) {
+          fetch("/api/ads/track", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ad_id: data.ad.id, type: "impression" }),
+          }).catch(() => {});
+        }
+      })
+      .catch(() => { if (!cancelled) setAd(null); });
+    return () => { cancelled = true; };
+  }, [placement]);
+
+  const handleClick = () => {
+    if (!ad) return;
+    fetch("/api/ads/track", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ad_id: ad.id, type: "click" }),
+    }).catch(() => {});
+  };
+
+  if (ad) {
+    return (
+      <a href={ad.target_url} target="_blank" rel="noopener noreferrer sponsored" onClick={handleClick} style={{
+        display: "block", width: "100%", maxWidth: spec.w, margin: "0 auto 20px", borderRadius: 12,
+        overflow: "hidden", border: `1px solid ${COLORS.line}`,
+      }}>
+        <img src={ad.image_url} alt={ad.advertiser} style={{ width: "100%", height: "auto", display: "block" }} />
+      </a>
+    );
+  }
+
+  return (
+    <div style={{
+      width: "100%", maxWidth: spec.w, aspectRatio: `${spec.w} / ${spec.h}`, margin: "0 auto 20px",
+      border: `1.5px dashed ${COLORS.line}`, borderRadius: 12, background: COLORS.bgCard,
+      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4,
+    }}>
+      <span style={{ color: COLORS.creamDim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>
+        Espacio publicitario
+      </span>
+      <span style={{ color: COLORS.creamDim, fontSize: 9, fontFamily: "var(--font-mono), 'Courier New', monospace", opacity: 0.6 }}>
+        {spec.label} · {placement}
+      </span>
+    </div>
+  );
+}
+
 function TicketLogo({ size = 28, color = COLORS.gold }) {
   const s = size / 46; // el diseño original se hizo a 46px de alto
   return (
@@ -2372,6 +2519,8 @@ function AciertosChart() {
 function DesktopRightPanel() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <AdBanner placement="desktop_sidebar" />
+
       <div style={{ background: COLORS.bgCard, border: `1px solid ${COLORS.line}`, borderRadius: 16, padding: 18 }}>
         <div style={{ color: COLORS.creamDim, fontSize: 11, textTransform: "uppercase", letterSpacing: 1 }}>Tu progreso</div>
         <div style={{ color: COLORS.cream, fontWeight: 800, fontSize: 15, marginTop: 4 }}>Aciertos por semana</div>
@@ -2434,6 +2583,7 @@ export default function MiQuinielaApp() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [showAdvertise, setShowAdvertise] = useState(false);
   const [joinedGlobal, setJoinedGlobal] = useState(false);
 
   const unreadCount = NOTIFICATIONS.filter(n => n.unread).length;
@@ -2485,6 +2635,7 @@ export default function MiQuinielaApp() {
       )}
       {showNotifications && <NotificationsScreen onClose={() => setShowNotifications(false)} />}
       {showHistory && <HistoryScreen onClose={() => setShowHistory(false)} />}
+      {showAdvertise && <AdvertiseScreen onClose={() => setShowAdvertise(false)} />}
       {showSettings && (
         <SettingsScreen
           plan={plan}
@@ -2550,7 +2701,7 @@ export default function MiQuinielaApp() {
               )}
               {tab === "profile" && (
                 <div style={{ maxWidth: 520, margin: "0 auto" }}>
-                  <ProfileScreen plan={plan} onOpenPlan={() => setShowPlan(true)} onOpenHistory={() => setShowHistory(true)} onOpenSettings={() => setShowSettings(true)} />
+                  <ProfileScreen plan={plan} onOpenPlan={() => setShowPlan(true)} onOpenHistory={() => setShowHistory(true)} onOpenSettings={() => setShowSettings(true)} onOpenAdvertise={() => setShowAdvertise(true)} />
                 </div>
               )}
             </div>
@@ -2583,7 +2734,7 @@ export default function MiQuinielaApp() {
               {tab === "home" && <HomeScreen {...homeProps} />}
               {tab === "quinielas" && <HomeScreen {...homeProps} />}
               {tab === "ranking" && <RankingScreen onJoinGlobal={() => setJoinedGlobal(true)} joinedGlobal={joinedGlobal} />}
-              {tab === "profile" && <ProfileScreen plan={plan} onOpenPlan={() => setShowPlan(true)} onOpenHistory={() => setShowHistory(true)} onOpenSettings={() => setShowSettings(true)} />}
+              {tab === "profile" && <ProfileScreen plan={plan} onOpenPlan={() => setShowPlan(true)} onOpenHistory={() => setShowHistory(true)} onOpenSettings={() => setShowSettings(true)} onOpenAdvertise={() => setShowAdvertise(true)} />}
               <BottomNav tab={tab} setTab={setTab} />
             </>
           )

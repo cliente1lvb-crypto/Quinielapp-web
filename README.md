@@ -157,6 +157,59 @@ proyecto), tienes que actualizar `NEXTAUTH_URL` y las Redirect URIs de Google
 y Facebook con esa URL nueva — si no, el login por Google/Facebook falla con
 un error de "redirect_uri_mismatch".
 
+## 8. Publicidad
+
+Ya están construidos los 3 espacios publicitarios y la infraestructura para
+venderlos — sin anuncios cargados, cada espacio se ve como un placeholder
+punteado que dice "Espacio publicitario" con su tamaño, en vez de estar vacío
+o roto.
+
+### Espacios disponibles (`placement`)
+
+| Placement | Tamaño | Dónde vive |
+|---|---|---|
+| `home_banner` | 320×100 | Pantalla de Inicio, entre el tablero y "Tus quinielas" |
+| `ranking_banner` | 320×100 | Pantalla de Ranking, debajo de la Quiniela Global |
+| `desktop_sidebar` | 300×250 | Panel lateral del dashboard de escritorio |
+
+También hay una pantalla **"Anúnciate con nosotros"** (Perfil → Anúnciate con
+nosotros) con esta misma tabla y un formulario de contacto — hoy ese
+formulario no guarda nada todavía (falta una tabla `ad_leads` y su endpoint),
+así que si alguien lo llena, apúntalo a mano por ahora.
+
+### Cómo dar de alta un anuncio real
+
+Con `DATABASE_URL` ya configurada, inserta una fila con un `POST`:
+
+```bash
+curl -X POST https://TU-URL.vercel.app/api/ads \
+  -H "Content-Type: application/json" \
+  -d '{
+    "advertiser": "Nombre del anunciante",
+    "placement": "home_banner",
+    "image_url": "https://.../banner-320x100.png",
+    "target_url": "https://sitio-del-anunciante.com",
+    "ends_at": "2026-12-31T23:59:59Z"
+  }'
+```
+
+- `ends_at` es opcional — si lo omites, el anuncio corre indefinidamente hasta
+  que lo desactives.
+- Para pausar un anuncio sin borrarlo, actualiza `active = false` directo en
+  Neon (todavía no hay un endpoint para esto).
+- El componente ya registra impresiones y clics solo (columnas `impressions`
+  y `clicks` de la tabla `ads`) — para ver el desempeño, por ahora es una
+  consulta directa en Neon:
+  ```sql
+  select advertiser, placement, impressions, clicks from ads order by created_at desc;
+  ```
+
+⚠️ **`POST /api/ads` no tiene ninguna protección todavía** — cualquiera con
+la URL podría dar de alta un anuncio. Antes de compartir la URL de
+producción públicamente, agrégale un guardado simple: exige un header
+`x-admin-key` que compares contra una variable de entorno `ADMIN_KEY` al
+principio del handler.
+
 ## Siguientes pasos (no incluidos todavía)
 
 - Endpoint para eliminar cuenta de verdad (`DELETE /api/users`) — hoy el botón

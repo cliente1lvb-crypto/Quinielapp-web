@@ -67,3 +67,23 @@ insert into leagues (name, country_flag) values
   ('Ligue 1', '🇫🇷'),
   ('Champions League', '⭐')
 on conflict (name) do nothing;
+
+-- ---------- Publicidad ----------
+-- Una fila = un anuncio activo en un espacio ("placement") de la app.
+-- Ver README sección "Publicidad" para la lista de placements disponibles,
+-- tamaños esperados de imagen, y cómo dar de alta un anuncio nuevo.
+create table if not exists ads (
+  id             uuid primary key default gen_random_uuid(),
+  advertiser     text not null,           -- nombre del anunciante, solo interno
+  placement      text not null,           -- "home_banner" | "desktop_sidebar" | "ranking_banner"
+  image_url      text not null,
+  target_url     text not null,
+  active         boolean not null default true,
+  starts_at      timestamptz not null default now(),
+  ends_at        timestamptz,             -- NULL = sin fecha de fin definida
+  impressions    integer not null default 0,
+  clicks         integer not null default 0,
+  created_at     timestamptz not null default now()
+);
+
+create index if not exists idx_ads_placement_active on ads(placement, active);
