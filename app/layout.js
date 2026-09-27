@@ -32,6 +32,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="es" className={`${spaceGrotesk.variable} ${jetbrainsMono.variable}`}>
       <body style={{ margin: 0, padding: 0, background: "#050d09" }}>
+        <style>{`*, *::before, *::after { box-sizing: border-box; }`}</style>
         <Providers>{children}</Providers>
       </body>
     </html>
