@@ -1886,6 +1886,48 @@ function GoogleIcon({ size = 16 }) {
   );
 }
 
+// Fondo decorativo para las pantallas de login: marcadores al azar armados
+// con los partidos reales del Sorteo Global (mismos datos que usa el resto
+// de la app) — le da ese aire de "casa de apuestas con vida" sin inventar
+// datos falsos de la nada. Puramente visual: pointer-events none, así nunca
+// interfiere con los clics del formulario que va encima.
+function MatchResultsBackdrop({ dim = 0.75 }) {
+  const matches = [...GLOBAL_SORTEO.partidos, ...GLOBAL_SORTEO.partidos];
+  return (
+    <div style={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none" }}>
+      <div style={{
+        display: "flex", flexWrap: "wrap", gap: 16, padding: 28,
+        opacity: 0.5, transform: "rotate(-3deg) scale(1.18)", transformOrigin: "center",
+      }}>
+        {matches.map((m, i) => {
+          const hs = (i * 7 + 3) % 5;
+          const as = (i * 5 + 1) % 4;
+          const live = i % 4 === 0;
+          return (
+            <div key={i} style={{
+              background: COLORS.bgCard, border: `1px solid ${COLORS.line}`, borderRadius: 10,
+              padding: "9px 13px", minWidth: 148,
+            }}>
+              <div style={{ fontSize: 8.5, color: COLORS.creamDim, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 5 }}>{m.league}</div>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, fontSize: 11, color: COLORS.cream, fontWeight: 700 }}>
+                <span>{m.home}</span><span style={{ fontFamily: "var(--font-mono), monospace" }}>{hs}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, fontSize: 11, color: COLORS.cream, fontWeight: 700, marginTop: 2 }}>
+                <span>{m.away}</span><span style={{ fontFamily: "var(--font-mono), monospace" }}>{as}</span>
+              </div>
+              {live && <div style={{ color: COLORS.live, fontSize: 8, fontWeight: 800, marginTop: 5 }}>● EN VIVO</div>}
+            </div>
+          );
+        })}
+      </div>
+      <div style={{
+        position: "absolute", inset: 0,
+        background: `linear-gradient(135deg, rgba(10,13,11,${dim}), rgba(10,13,11,${dim - 0.1}))`,
+      }} />
+    </div>
+  );
+}
+
 function LoginScreen() {
   const [mode, setMode] = useState("login"); // login | signup
   const [name, setName] = useState("");
@@ -2663,16 +2705,42 @@ export default function MiQuinielaApp() {
         overflow: "hidden", fontFamily: "var(--font-display), 'Helvetica Neue', Arial, sans-serif",
       }}>
         {authStep !== "app" ? (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", width: "100%" }}>
+          <div style={{ display: "flex", minHeight: "100vh", width: "100%" }}>
+            {/* Panel de marca — el fondo con marcadores al azar vive aquí */}
             <div style={{
-              width: 420, maxWidth: "92vw", minHeight: 640, background: COLORS.bg,
-              border: `1px solid ${COLORS.line}`, borderRadius: 20, overflow: "hidden",
-              display: "flex", flexDirection: "column",
+              flex: "1 1 56%", position: "relative", overflow: "hidden",
+              background: COLORS.bgCardAlt, display: "flex", flexDirection: "column",
+              justifyContent: "center", padding: "0 64px",
             }}>
-              {authStep === "login" && <LoginScreen />}
-              {authStep === "friendsFound" && (
-                <FriendsFoundScreen onContinue={() => setAuthStep("app")} />
-              )}
+              <MatchResultsBackdrop />
+              <div style={{ position: "relative", zIndex: 1, maxWidth: 440 }}>
+                <div style={{
+                  width: 56, height: 56, borderRadius: 15, background: COLORS.goldSoft,
+                  border: `1.5px solid ${COLORS.gold}`, display: "flex", alignItems: "center",
+                  justifyContent: "center", marginBottom: 24,
+                }}>
+                  <TicketLogo size={27} />
+                </div>
+                <div style={{ color: COLORS.cream, fontWeight: 700, fontSize: 34, letterSpacing: -0.8, lineHeight: 1.15, marginBottom: 14 }}>
+                  Arma la quiniela<br />con tu banda
+                </div>
+                <div style={{ color: COLORS.creamDim, fontSize: 14.5, lineHeight: 1.6 }}>
+                  Quinielas privadas con amigos, ranking global estilo ProGol y torneos con premio — todo en un solo lugar.
+                </div>
+              </div>
+            </div>
+
+            {/* Panel del formulario */}
+            <div style={{
+              flex: "1 1 44%", display: "flex", alignItems: "center", justifyContent: "center",
+              background: COLORS.bg, padding: "40px 32px", overflowY: "auto",
+            }}>
+              <div style={{ width: "100%", maxWidth: 380 }}>
+                {authStep === "login" && <LoginScreen />}
+                {authStep === "friendsFound" && (
+                  <FriendsFoundScreen onContinue={() => setAuthStep("app")} />
+                )}
+              </div>
             </div>
           </div>
         ) : openQuiniela ? (
