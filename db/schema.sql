@@ -7,16 +7,29 @@
 create extension if not exists "pgcrypto";
 
 -- ---------- Usuarios ----------
+-- password_hash y birthdate son NULL para cuentas que entran por Google/Facebook
+-- (nunca tuvieron que escribir una contraseña ni llenar el formulario de registro).
+-- oauth_provider guarda de dónde vino la cuenta ("google", "facebook", o NULL si
+-- se registró con correo y contraseña) — solo informativo, no se usa para validar.
 create table if not exists users (
   id            uuid primary key default gen_random_uuid(),
   name          text not null,
   email         text not null unique,
-  password_hash text not null,           -- bcrypt, nunca texto plano
-  birthdate     date not null,
+  password_hash text,                    -- bcrypt; NULL en cuentas OAuth
+  birthdate     date,                    -- NULL en cuentas OAuth (no lo piden esos flujos)
   avatar        text default '🦁',
+  avatar_url    text,                    -- foto de perfil de Google/Facebook, si la hay
+  oauth_provider text,                   -- "google" | "facebook" | NULL
   plan          text not null default 'free' check (plan in ('free', 'premium')),
   created_at    timestamptz not null default now()
 );
+
+-- Si ya habías corrido este esquema antes de agregar login con Google/Facebook,
+-- estas líneas ponen tu tabla al día sin perder los usuarios que ya tenías.
+alter table users alter column password_hash drop not null;
+alter table users alter column birthdate drop not null;
+alter table users add column if not exists avatar_url text;
+alter table users add column if not exists oauth_provider text;
 
 -- ---------- Ligas (catálogo fijo de las 5 grandes + Champions League) ----------
 create table if not exists leagues (

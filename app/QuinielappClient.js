@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
+import { useSession, signIn, signOut } from "next-auth/react";
 import { Trophy, Plus, Users, MessageCircle, Home as HomeIcon, X, Send, Crown, ChevronRight, Settings, Shield, Smile, Bell, LogOut, Camera, Inbox, BarChart3, Trash2, Flag, MoreVertical } from "lucide-react";
 
 // ---------- Design tokens ----------
@@ -1704,16 +1705,59 @@ function FacebookIcon({ size = 16, color = "#fff" }) {
   );
 }
 
-function LoginScreen({ onLogin, onFacebookLogin }) {
+function GoogleIcon({ size = 16 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24">
+      <path fill="#4285F4" d="M23.49 12.27c0-.82-.07-1.6-.2-2.36H12v4.47h6.45c-.28 1.5-1.13 2.77-2.4 3.62v3h3.87c2.27-2.09 3.57-5.17 3.57-8.73z" />
+      <path fill="#34A853" d="M12 24c3.24 0 5.95-1.07 7.93-2.91l-3.87-3c-1.08.72-2.45 1.15-4.06 1.15-3.12 0-5.77-2.1-6.71-4.93H1.29v3.09C3.26 21.3 7.31 24 12 24z" />
+      <path fill="#FBBC05" d="M5.29 14.31c-.24-.72-.38-1.49-.38-2.28s.14-1.56.38-2.28V6.66H1.29A11.96 11.96 0 000 12.03c0 1.93.46 3.76 1.29 5.37l4-3.09z" />
+      <path fill="#EA4335" d="M12 4.77c1.76 0 3.34.6 4.59 1.79l3.44-3.44C17.94 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.66l4 3.09c.94-2.83 3.59-4.98 6.71-4.98z" />
+    </svg>
+  );
+}
+
+function LoginScreen() {
   const [mode, setMode] = useState("login"); // login | signup
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [birthdate, setBirthdate] = useState("");
   const [pass, setPass] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const canSubmit = mode === "login"
     ? email.trim() && pass.trim()
     : name.trim() && email.trim() && birthdate.trim() && pass.trim();
+
+  // Registro: crea la fila en Neon (/api/users, bcrypt del lado del servidor) y
+  // luego inicia sesión con las mismas credenciales. Login: entra directo.
+  // En ambos casos, quien detecta que ya quedaste autenticado es el hook
+  // useSession() de arriba (MiQuinielaApp) — no navegamos nada a mano aquí.
+  const handleSubmit = async () => {
+    if (!canSubmit || loading) return;
+    setError("");
+    setLoading(true);
+    try {
+      if (mode === "signup") {
+        const res = await fetch("/api/users", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, email, birthdate, password: pass }),
+        });
+        const data = await res.json();
+        if (!data.ok) {
+          setError(data.error || "No se pudo crear la cuenta.");
+          setLoading(false);
+          return;
+        }
+      }
+      const result = await signIn("credentials", { email, password: pass, redirect: false });
+      if (result?.error) setError("Correo o contraseña incorrectos.");
+    } catch (e) {
+      setError("Algo salió mal. Intenta de nuevo.");
+    }
+    setLoading(false);
+  };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1, padding: "48px 24px 32px", justifyContent: "space-between", overflowY: "auto" }}>
@@ -1729,15 +1773,22 @@ function LoginScreen({ onLogin, onFacebookLogin }) {
           <div style={{ color: COLORS.creamDim, fontSize: 12, marginTop: 4 }}>Arma la quiniela con tu banda</div>
         </div>
 
-        <button onClick={onFacebookLogin} style={{
+        <button onClick={() => signIn("facebook")} style={{
           width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
           background: "#1877F2", border: "none", borderRadius: 12, padding: "13px 0",
           color: "#fff", fontWeight: 700, fontSize: 13.5, cursor: "pointer", marginBottom: 10,
         }}>
           <FacebookIcon size={16} /> Continuar con Facebook
         </button>
+        <button onClick={() => signIn("google")} style={{
+          width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+          background: "#fff", border: `1px solid ${COLORS.line}`, borderRadius: 12, padding: "13px 0",
+          color: "#1f1f1f", fontWeight: 700, fontSize: 13.5, cursor: "pointer", marginBottom: 10,
+        }}>
+          <GoogleIcon size={16} /> Continuar con Google
+        </button>
         <div style={{ color: COLORS.creamDim, fontSize: 10.5, textAlign: "center", marginBottom: 18, lineHeight: 1.5 }}>
-          Así te ayudamos a encontrar amigos tuyos que ya están en Quinielapp
+          Con Facebook además te ayudamos a encontrar amigos tuyos que ya están en Quinielapp
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
@@ -1789,12 +1840,16 @@ function LoginScreen({ onLogin, onFacebookLogin }) {
           </div>
         )}
 
-        <button onClick={onLogin} disabled={!canSubmit} style={{
-          width: "100%", background: canSubmit ? COLORS.gold : COLORS.line, border: "none",
-          borderRadius: 12, padding: "13px 0", color: canSubmit ? COLORS.bg : COLORS.creamDim,
+        {error && (
+          <div style={{ color: COLORS.live, fontSize: 11.5, marginBottom: 10, textAlign: "center" }}>{error}</div>
+        )}
+
+        <button onClick={handleSubmit} disabled={!canSubmit || loading} style={{
+          width: "100%", background: (canSubmit && !loading) ? COLORS.gold : COLORS.line, border: "none",
+          borderRadius: 12, padding: "13px 0", color: (canSubmit && !loading) ? COLORS.bg : COLORS.creamDim,
           fontWeight: 800, fontSize: 14, cursor: "pointer",
         }}>
-          {mode === "login" ? "Iniciar sesión" : "Crear cuenta"}
+          {loading ? "Un momento..." : mode === "login" ? "Iniciar sesión" : "Crear cuenta"}
         </button>
       </div>
 
@@ -2307,8 +2362,8 @@ function DesktopDashboard(props) {
 }
 
 export default function MiQuinielaApp() {
+  const { data: session, status } = useSession(); // "loading" | "authenticated" | "unauthenticated"
   const [authStep, setAuthStep] = useState("login"); // login | friendsFound | app
-  const [fromFacebook, setFromFacebook] = useState(false);
   const [tab, setTab] = useState("home");
   const [openQuiniela, setOpenQuiniela] = useState(null);
   const [showCreate, setShowCreate] = useState(false);
@@ -2322,6 +2377,28 @@ export default function MiQuinielaApp() {
 
   const unreadCount = NOTIFICATIONS.filter(n => n.unread).length;
   const isDesktop = useIsDesktop();
+  const fromFacebook = session?.provider === "facebook";
+
+  // Traduce el estado real de NextAuth (sesión sí/no) a las pantallas de este
+  // prototipo. La pantalla "encontramos a tus amigos" solo tiene sentido justo
+  // después de entrar por Facebook, así que se muestra una vez por pestaña del
+  // navegador (sessionStorage), no cada vez que la sesión sigue activa en una
+  // recarga normal de la página.
+  useEffect(() => {
+    if (status === "loading") return;
+    if (status === "unauthenticated") {
+      setAuthStep("login");
+      return;
+    }
+    // status === "authenticated"
+    const alreadyShown = typeof window !== "undefined" && sessionStorage.getItem("qp_friends_shown");
+    if (session?.provider === "facebook" && !alreadyShown) {
+      sessionStorage.setItem("qp_friends_shown", "1");
+      setAuthStep("friendsFound");
+    } else {
+      setAuthStep("app");
+    }
+  }, [status, session]);
 
   const homeProps = {
     onOpenQuiniela: setOpenQuiniela, onCreate: () => setShowCreate(true),
@@ -2352,14 +2429,21 @@ export default function MiQuinielaApp() {
           plan={plan}
           onClose={() => setShowSettings(false)}
           onDowngrade={() => setPlan("free")}
-          onLogout={() => { setShowSettings(false); setAuthStep("login"); setFromFacebook(false); }}
-          onDeleteAccount={() => { setShowSettings(false); setAuthStep("login"); setFromFacebook(false); setPlan("free"); }}
+          onLogout={() => { setShowSettings(false); signOut(); }}
+          // TODO: cuando exista DELETE /api/users, llamarlo aquí antes de cerrar sesión.
+          onDeleteAccount={() => { setShowSettings(false); setPlan("free"); signOut(); }}
         />
       )}
     </>
   );
 
   // ---------- Escritorio: sidebar persistente + dashboard con panel de estadísticas ----------
+  // Mientras NextAuth confirma si ya había sesión (cookie), no mostramos nada
+  // todavía — evita el parpadeo de "login" antes de saltar directo a la app.
+  if (status === "loading") {
+    return <div style={{ width: "100%", minHeight: "100vh", background: COLORS.bg }} />;
+  }
+
   if (isDesktop) {
     return (
       <div style={{
@@ -2373,12 +2457,7 @@ export default function MiQuinielaApp() {
               border: `1px solid ${COLORS.line}`, borderRadius: 20, overflow: "hidden",
               display: "flex", flexDirection: "column",
             }}>
-              {authStep === "login" && (
-                <LoginScreen
-                  onLogin={() => setAuthStep("app")}
-                  onFacebookLogin={() => { setFromFacebook(true); setAuthStep("friendsFound"); }}
-                />
-              )}
+              {authStep === "login" && <LoginScreen />}
               {authStep === "friendsFound" && (
                 <FriendsFoundScreen onContinue={() => setAuthStep("app")} />
               )}
@@ -2431,12 +2510,7 @@ export default function MiQuinielaApp() {
         width: 390, maxWidth: "100vw", minHeight: "100vh", background: COLORS.bg,
         display: "flex", flexDirection: "column", position: "relative", overflow: "hidden",
       }}>
-        {authStep === "login" && (
-          <LoginScreen
-            onLogin={() => setAuthStep("app")}
-            onFacebookLogin={() => { setFromFacebook(true); setAuthStep("friendsFound"); }}
-          />
-        )}
+        {authStep === "login" && <LoginScreen />}
         {authStep === "friendsFound" && (
           <FriendsFoundScreen onContinue={() => setAuthStep("app")} />
         )}

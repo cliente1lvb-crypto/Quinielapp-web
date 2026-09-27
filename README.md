@@ -103,11 +103,65 @@ dominio propio por ahora, esa URL sirve perfecto para las pruebas.
   escriba en `gamescore` — ya sea a mano con `POST /api/scores`, o después el
   job que sincronice con API-Football).
 
-## Siguientes pasos (no incluidos en esta migración)
+## 7. Login con Google y Facebook (NextAuth)
 
-- Conectar el login/registro del cliente a `/api/users` de verdad (hoy el
-  formulario sigue siendo visual, no llama al endpoint).
+Ya está conectado de verdad: registro/login por correo contra Neon (bcrypt),
+más botones de Google y Facebook. Falta darle sus llaves a cada proveedor.
+
+### Generar NEXTAUTH_SECRET
+
+```bash
+openssl rand -base64 32
+```
+
+Pégalo en `.env.local` como `NEXTAUTH_SECRET` (y luego en Vercel también).
+
+### Google
+
+1. [console.cloud.google.com](https://console.cloud.google.com) → crea un
+   proyecto (o usa uno existente).
+2. **APIs & Services → OAuth consent screen** → configúralo en modo
+   "External", agrega tu correo como usuario de prueba mientras no esté
+   publicado.
+3. **APIs & Services → Credentials → Create Credentials → OAuth client ID**
+   → tipo "Web application".
+4. En **Authorized redirect URIs** agrega:
+   - `http://localhost:3000/api/auth/callback/google` (para probar en local)
+   - `https://TU-URL-DE-VERCEL.vercel.app/api/auth/callback/google`
+5. Copia el **Client ID** y **Client Secret** a `GOOGLE_CLIENT_ID` /
+   `GOOGLE_CLIENT_SECRET`.
+
+### Facebook
+
+1. [developers.facebook.com](https://developers.facebook.com) → **My Apps →
+   Create App** → tipo "Consumer".
+2. Agrega el producto **Facebook Login** → Settings.
+3. En **Valid OAuth Redirect URIs** agrega:
+   - `http://localhost:3000/api/auth/callback/facebook`
+   - `https://TU-URL-DE-VERCEL.vercel.app/api/auth/callback/facebook`
+4. En **App Settings → Basic**, copia el **App ID** y **App Secret** a
+   `FACEBOOK_CLIENT_ID` / `FACEBOOK_CLIENT_SECRET`.
+5. Mientras la app esté en modo "Development", solo tú y los usuarios que
+   agregues como "Testers" van a poder entrar con Facebook — es justo lo que
+   quieres mientras solo pruebas en Vercel sin dominio propio.
+
+### En Vercel
+
+Agrega las 6 variables (`NEXTAUTH_SECRET`, `NEXTAUTH_URL`,
+`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `FACEBOOK_CLIENT_ID`,
+`FACEBOOK_CLIENT_SECRET`) en **Project Settings → Environment Variables**,
+y vuelve a desplegar (`vercel --prod`) para que tomen efecto.
+
+⚠️ Cada vez que Vercel te dé una URL nueva (pasa si borras y recreas el
+proyecto), tienes que actualizar `NEXTAUTH_URL` y las Redirect URIs de Google
+y Facebook con esa URL nueva — si no, el login por Google/Facebook falla con
+un error de "redirect_uri_mismatch".
+
+## Siguientes pasos (no incluidos todavía)
+
+- Endpoint para eliminar cuenta de verdad (`DELETE /api/users`) — hoy el botón
+  de "Eliminar cuenta" cierra sesión pero no borra la fila en Neon.
 - Tablas y endpoints para quinielas privadas, miembros, chat y torneos.
 - Job programado (Vercel Cron o similar) que sincronice `gamescore` con
   API-Football cada 15 segundos mientras haya partidos en vivo.
-- Autenticación real de sesión (hoy no hay login persistente entre visitas).
+- Recuperar contraseña ("¿Olvidaste tu contraseña?" es todavía solo visual).
