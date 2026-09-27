@@ -559,6 +559,8 @@ function TournamentDetail({ t, onClose, onJoin }) {
           background: COLORS.bgCard, border: `1px solid ${COLORS.line}`, borderRadius: 12,
           padding: 14, marginBottom: 16,
         }}>
+          {t.region && <div style={{ color: COLORS.teal, fontSize: 11, fontWeight: 700, marginBottom: 8 }}>📍 Torneo {t.region === "Nacional" ? "nacional" : `regional · ${t.region}`}</div>}
+          {t.description && <div style={{ color: COLORS.creamDim, fontSize: 12, lineHeight: 1.5, marginBottom: 10 }}>{t.description}</div>}
           <div style={{ color: COLORS.creamDim, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>Premio</div>
           <div style={{ color: COLORS.gold, fontWeight: 700, fontSize: 13 }}>{t.prize}</div>
           {t.joined && t.yourRank && (
@@ -598,8 +600,26 @@ function TournamentDetail({ t, onClose, onJoin }) {
 }
 
 function TorneosTab() {
+  const { dbMode, toast } = React.useContext(AppCtx);
   const [openTournament, setOpenTournament] = useState(null);
   const [joined, setJoined] = useState({});
+  const [dbList, setDbList] = useState(null);
+  const load = async () => { const r = await api("/api/tournaments"); setDbList(r.ok ? r.tournaments : []); return r; };
+  useEffect(() => { if (dbMode) load(); }, [dbMode]);
+  const list = dbMode ? (dbList || []) : TOURNAMENTS;
+  const joinTournament = async (t) => {
+    if (!t.db) {
+      setJoined(prev => ({ ...prev, [t.id]: true }));
+      setOpenTournament(prev => ({ ...prev, joined: true }));
+      return;
+    }
+    const r = await api("/api/tournaments/join", { method: "POST", body: { id: t.id } });
+    if (!r.ok) { toast(r.error); return; }
+    const fresh = await load();
+    const updated = fresh.ok && fresh.tournaments.find(x => x.id === t.id);
+    setOpenTournament(updated || { ...t, joined: true });
+    toast(`Ya estás inscrito en ${t.name}.`);
+  };
 
   const statusColor = (s) => s === "En curso" ? COLORS.live : s === "Abierto" ? COLORS.gold : COLORS.creamDim;
 
@@ -608,7 +628,13 @@ function TorneosTab() {
       <div style={{ color: COLORS.creamDim, fontSize: 11.5, marginBottom: 14, lineHeight: 1.5 }}>
         Compite en torneos globales con fecha de inicio y fin, tabla propia y premio al ganador.
       </div>
-      {TOURNAMENTS.map(t => {
+      {dbMode && dbList === null && <div style={{ color: COLORS.creamDim, fontSize: 12 }}>Cargando torneos...</div>}
+      {dbMode && dbList && dbList.length === 0 && (
+        <div style={{ color: COLORS.creamDim, fontSize: 12.5, textAlign: "center", padding: 24, background: COLORS.bgCard, border: `1px dashed ${COLORS.line}`, borderRadius: 14 }}>
+          No hay torneos abiertos por ahora. ¡Pronto anunciamos el siguiente!
+        </div>
+      )}
+      {list.map(t => {
         const isJoined = joined[t.id] ?? t.joined;
         return (
           <button key={t.id} onClick={() => setOpenTournament({ ...t, joined: isJoined })} style={{
@@ -619,7 +645,7 @@ function TorneosTab() {
               <div style={{ fontSize: 22 }}>{t.emoji}</div>
               <div style={{ flex: 1 }}>
                 <div style={{ color: COLORS.cream, fontWeight: 700, fontSize: 13.5 }}>{t.name}</div>
-                <div style={{ color: COLORS.creamDim, fontSize: 11, marginTop: 2 }}>{t.dates} · {t.participants.toLocaleString("es-MX")} jugadores</div>
+                <div style={{ color: COLORS.creamDim, fontSize: 11, marginTop: 2 }}>{t.region ? `📍 ${t.region} · ` : ""}{t.dates} · {t.participants.toLocaleString("es-MX")} jugadores</div>
               </div>
               <ChevronRight size={17} color={COLORS.creamDim} />
             </div>
@@ -637,7 +663,7 @@ function TorneosTab() {
         <TournamentDetail
           t={openTournament}
           onClose={() => setOpenTournament(null)}
-          onJoin={() => { setJoined(prev => ({ ...prev, [openTournament.id]: true })); setOpenTournament(prev => ({ ...prev, joined: true })); }}
+          onJoin={() => joinTournament(openTournament)}
         />
       )}
     </div>
