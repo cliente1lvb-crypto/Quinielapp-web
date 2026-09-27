@@ -1886,43 +1886,174 @@ function GoogleIcon({ size = 16 }) {
   );
 }
 
-// Fondo decorativo para las pantallas de login: marcadores al azar armados
-// con los partidos reales del Sorteo Global (mismos datos que usa el resto
-// de la app) — le da ese aire de "casa de apuestas con vida" sin inventar
-// datos falsos de la nada. Puramente visual: pointer-events none, así nunca
-// interfiere con los clics del formulario que va encima.
-function MatchResultsBackdrop({ dim = 0.75 }) {
-  const matches = [...GLOBAL_SORTEO.partidos, ...GLOBAL_SORTEO.partidos];
+// Fondo animado del login de escritorio: balones de varios deportes y boletos
+// de quiniela cayendo sin parar detrás de la tarjeta central. Todo es CSS
+// (transform + opacity, acelerado por GPU) — sin librerías ni canvas.
+// Las posiciones salen de un pseudoaleatorio con semilla fija para que el
+// HTML del servidor y el del navegador coincidan (sin errores de hidratación).
+// Puramente visual: pointer-events none, nunca bloquea clics del formulario.
+function seededRand(i) {
+  const x = Math.sin(i * 9301 + 49297) * 233280;
+  return x - Math.floor(x);
+}
+
+function SportBall({ kind, size, color }) {
+  const common = { fill: "none", stroke: color, strokeWidth: 1.4, strokeLinecap: "round", strokeLinejoin: "round" };
   return (
-    <div style={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none" }}>
+    <svg width={size} height={size} viewBox="0 0 24 24" style={{ display: "block" }}>
+      {kind === "soccer" && (
+        <g {...common}>
+          <circle cx="12" cy="12" r="10" />
+          <polygon points="12,8 15.8,10.8 14.4,15.2 9.6,15.2 8.2,10.8" fill={color} fillOpacity="0.35" />
+          <path d="M12 8V2M15.8 10.8l5.7-1.8M14.4 15.2l3.4 5M9.6 15.2l-3.4 5M8.2 10.8L2.5 9" />
+        </g>
+      )}
+      {kind === "basket" && (
+        <g {...common}>
+          <circle cx="12" cy="12" r="10" />
+          <path d="M2 12h20M12 2v20M5 5c3.5 3.5 3.5 10.5 0 14M19 5c-3.5 3.5-3.5 10.5 0 14" />
+        </g>
+      )}
+      {kind === "football" && (
+        <g {...common}>
+          <ellipse cx="12" cy="12" rx="10.5" ry="6.2" transform="rotate(-35 12 12)" />
+          <path d="M9 15l6-6M9.8 12.8l1.4 1.4M11.3 11.3l1.4 1.4M12.8 9.8l1.4 1.4" />
+        </g>
+      )}
+      {kind === "baseball" && (
+        <g {...common}>
+          <circle cx="12" cy="12" r="10" />
+          <path d="M6.5 4.3c2.8 4.6 2.8 10.8 0 15.4M17.5 4.3c-2.8 4.6-2.8 10.8 0 15.4" />
+        </g>
+      )}
+      {kind === "tennis" && (
+        <g {...common}>
+          <circle cx="12" cy="12" r="10" fill={color} fillOpacity="0.12" />
+          <path d="M3.2 7.5c4 2.5 4 6.5 0 9M20.8 7.5c-4 2.5-4 6.5 0 9" />
+        </g>
+      )}
+      {kind === "volley" && (
+        <g {...common}>
+          <circle cx="12" cy="12" r="10" />
+          <path d="M12 2c-1 5 1 8 5.5 9.5M12 12c-4.5 1.5-7.5 1-9.8-1.5M12 12c1.5 4 1 7-1.5 9.8M12 12c2.5-2 6-2.5 9.5-1" />
+        </g>
+      )}
+    </svg>
+  );
+}
+
+function FallingTicket({ seed }) {
+  const picks = [0, 1, 2, 3].map(r => Math.floor(seededRand(seed * 13 + r) * 3));
+  const start = Math.floor(seededRand(seed * 7) * 7);
+  const rows = GLOBAL_SORTEO.partidos.slice(start, start + 4);
+  const abbr = (t) => t.replace(/^(FC|AS|AC|ACF|VfB|AFC)\s/, "").slice(0, 3).toUpperCase();
+  return (
+    <div style={{
+      width: 118, background: "rgba(21,25,22,0.92)", border: `1px solid ${COLORS.gold}55`,
+      borderRadius: 9, padding: "8px 9px 9px", boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
+    }}>
       <div style={{
-        display: "flex", flexWrap: "wrap", gap: 16, padding: 28,
-        opacity: 0.5, transform: "rotate(-3deg) scale(1.18)", transformOrigin: "center",
+        display: "flex", justifyContent: "space-between", alignItems: "center",
+        fontFamily: "var(--font-mono), monospace", fontSize: 8, color: COLORS.gold,
+        letterSpacing: 0.6, borderBottom: `1px dashed ${COLORS.line}`, paddingBottom: 5, marginBottom: 6,
       }}>
-        {matches.map((m, i) => {
-          const hs = (i * 7 + 3) % 5;
-          const as = (i * 5 + 1) % 4;
-          const live = i % 4 === 0;
-          return (
-            <div key={i} style={{
-              background: COLORS.bgCard, border: `1px solid ${COLORS.line}`, borderRadius: 10,
-              padding: "9px 13px", minWidth: 148,
-            }}>
-              <div style={{ fontSize: 8.5, color: COLORS.creamDim, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 5 }}>{m.league}</div>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, fontSize: 11, color: COLORS.cream, fontWeight: 700 }}>
-                <span>{m.home}</span><span style={{ fontFamily: "var(--font-mono), monospace" }}>{hs}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, fontSize: 11, color: COLORS.cream, fontWeight: 700, marginTop: 2 }}>
-                <span>{m.away}</span><span style={{ fontFamily: "var(--font-mono), monospace" }}>{as}</span>
-              </div>
-              {live && <div style={{ color: COLORS.live, fontSize: 8, fontWeight: 800, marginTop: 5 }}>● EN VIVO</div>}
-            </div>
-          );
-        })}
+        <span>QUINIELA</span><span>#{GLOBAL_SORTEO.numero}</span>
       </div>
+      {rows.map((m, r) => (
+        <div key={r} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: r ? 4 : 0 }}>
+          <span style={{ fontSize: 8, color: COLORS.cream, fontWeight: 700, letterSpacing: 0.3 }}>
+            {abbr(m.home)}·{abbr(m.away)}
+          </span>
+          <span style={{ display: "flex", gap: 3 }}>
+            {["L", "E", "V"].map((lbl, c) => (
+              <span key={lbl} style={{
+                width: 11, height: 11, borderRadius: 2.5, fontSize: 6.5, fontWeight: 800,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                border: `1px solid ${picks[r] === c ? COLORS.gold : COLORS.line}`,
+                background: picks[r] === c ? COLORS.gold : "transparent",
+                color: picks[r] === c ? COLORS.bg : COLORS.creamDim,
+              }}>{lbl}</span>
+            ))}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+const SPORT_KINDS = ["soccer", "basket", "football", "baseball", "tennis", "volley"];
+const SPORT_TINTS = [COLORS.gold, COLORS.cream, COLORS.teal, "#F5B83D"];
+
+function SportsRainBackdrop({ count = 38 }) {
+  const items = Array.from({ length: count }, (_, i) => {
+    const r = (k) => seededRand(i * 31 + k);
+    const isTicket = i % 3 === 1;
+    const near = r(1) > 0.55; // capa cercana: más grande, más visible y más rápida
+    const duration = (near ? 11 : 17) + r(2) * 10;
+    const r0 = Math.round(r(3) * 360);
+    const spin = (r(4) > 0.5 ? 1 : -1) * (isTicket ? 60 + r(5) * 120 : 220 + r(5) * 380);
+    return {
+      i, isTicket, near,
+      left: r(6) * 100,
+      duration,
+      delay: -r(7) * duration, // negativo: al cargar ya hay cosas a media caída
+      sway: 10 + r(8) * 26,
+      swayDur: 2.8 + r(9) * 3,
+      size: isTicket ? 1 : Math.round((near ? 30 : 18) + r(10) * (near ? 30 : 16)),
+      scale: isTicket ? (near ? 0.95 + r(11) * 0.3 : 0.6 + r(11) * 0.2) : 1,
+      kind: SPORT_KINDS[Math.floor(r(12) * SPORT_KINDS.length)],
+      tint: SPORT_TINTS[Math.floor(r(13) * SPORT_TINTS.length)],
+      opacity: near ? 0.5 + r(14) * 0.25 : 0.22 + r(14) * 0.15,
+      r0, r1: r0 + spin,
+    };
+  });
+
+  return (
+    <div aria-hidden="true" style={{ position: "fixed", inset: 0, overflow: "hidden", pointerEvents: "none", zIndex: 0 }}>
+      <style>{`
+        @keyframes qa-fall {
+          from { transform: translate3d(0, -30vh, 0) rotate(var(--r0)); }
+          to   { transform: translate3d(0, 130vh, 0) rotate(var(--r1)); }
+        }
+        @keyframes qa-sway {
+          from { transform: translateX(calc(var(--sw) * -1)); }
+          to   { transform: translateX(var(--sw)); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .qa-drop, .qa-sway { animation-play-state: paused !important; }
+        }
+      `}</style>
+
+      {/* resplandor verde de fondo */}
       <div style={{
         position: "absolute", inset: 0,
-        background: `linear-gradient(135deg, rgba(10,13,11,${dim}), rgba(10,13,11,${dim - 0.1}))`,
+        background: `radial-gradient(ellipse 60% 55% at 50% 45%, ${COLORS.gold}14, transparent 70%), ${COLORS.bg}`,
+      }} />
+
+      {items.map(it => (
+        <div key={it.i} className="qa-drop" style={{
+          position: "absolute", top: 0, left: `${it.left}%`,
+          "--r0": `${it.r0}deg`, "--r1": `${it.r1}deg`,
+          animation: `qa-fall ${it.duration}s linear ${it.delay}s infinite`,
+          opacity: it.opacity, filter: it.near ? "none" : "blur(1.2px)",
+          willChange: "transform",
+        }}>
+          <div className="qa-sway" style={{
+            "--sw": `${it.sway}px`,
+            animation: `qa-sway ${it.swayDur}s ease-in-out ${-it.swayDur * seededRand(it.i)}s infinite alternate`,
+          }}>
+            {it.isTicket
+              ? <div style={{ transform: `scale(${it.scale})` }}><FallingTicket seed={it.i} /></div>
+              : <SportBall kind={it.kind} size={it.size} color={it.tint} />}
+          </div>
+        </div>
+      ))}
+
+      {/* viñeta: oscurece el centro para que la tarjeta se lea bien y deja
+          ver la lluvia con más fuerza en las orillas */}
+      <div style={{
+        position: "absolute", inset: 0,
+        background: "radial-gradient(ellipse 38% 60% at 50% 50%, rgba(10,13,11,0.82), rgba(10,13,11,0.35) 70%, rgba(10,13,11,0.15) 100%)",
       }} />
     </div>
   );
@@ -2705,42 +2836,26 @@ export default function MiQuinielaApp() {
         overflow: "hidden", fontFamily: "var(--font-display), 'Helvetica Neue', Arial, sans-serif",
       }}>
         {authStep !== "app" ? (
-          <div style={{ display: "flex", minHeight: "100vh", width: "100%" }}>
-            {/* Panel de marca — el fondo con marcadores al azar vive aquí */}
-            <div style={{
-              flex: "1 1 56%", position: "relative", overflow: "hidden",
-              background: COLORS.bgCardAlt, display: "flex", flexDirection: "column",
-              justifyContent: "center", padding: "0 64px",
-            }}>
-              <MatchResultsBackdrop />
-              <div style={{ position: "relative", zIndex: 1, maxWidth: 440 }}>
-                <div style={{
-                  width: 56, height: 56, borderRadius: 15, background: COLORS.goldSoft,
-                  border: `1.5px solid ${COLORS.gold}`, display: "flex", alignItems: "center",
-                  justifyContent: "center", marginBottom: 24,
-                }}>
-                  <TicketLogo size={27} />
-                </div>
-                <div style={{ color: COLORS.cream, fontWeight: 700, fontSize: 34, letterSpacing: -0.8, lineHeight: 1.15, marginBottom: 14 }}>
-                  Arma la quiniela<br />con tu banda
-                </div>
-                <div style={{ color: COLORS.creamDim, fontSize: 14.5, lineHeight: 1.6 }}>
-                  Quinielas privadas con amigos, ranking global estilo ProGol y torneos con premio — todo en un solo lugar.
-                </div>
-              </div>
-            </div>
+          <div style={{
+            position: "relative", minHeight: "100vh", width: "100%",
+            display: "flex", alignItems: "center", justifyContent: "center", padding: "48px 24px",
+            boxSizing: "border-box",
+          }}>
+            {/* Lluvia de deportes y quinielas detrás de todo */}
+            <SportsRainBackdrop />
 
-            {/* Panel del formulario */}
+            {/* Tarjeta central con el formulario */}
             <div style={{
-              flex: "1 1 44%", display: "flex", alignItems: "center", justifyContent: "center",
-              background: COLORS.bg, padding: "40px 32px", overflowY: "auto",
+              position: "relative", zIndex: 1, width: "100%", maxWidth: 420,
+              background: "rgba(10,13,11,0.8)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)",
+              border: `1px solid ${COLORS.gold}33`, borderRadius: 24, padding: "0 12px",
+              boxShadow: `0 30px 90px rgba(0,0,0,0.6), 0 0 60px ${COLORS.gold}14`,
+              display: "flex", flexDirection: "column",
             }}>
-              <div style={{ width: "100%", maxWidth: 380 }}>
-                {authStep === "login" && <LoginScreen />}
-                {authStep === "friendsFound" && (
-                  <FriendsFoundScreen onContinue={() => setAuthStep("app")} />
-                )}
-              </div>
+              {authStep === "login" && <LoginScreen />}
+              {authStep === "friendsFound" && (
+                <FriendsFoundScreen onContinue={() => setAuthStep("app")} />
+              )}
             </div>
           </div>
         ) : openQuiniela ? (
