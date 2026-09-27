@@ -1747,6 +1747,18 @@ function LoginScreen() {
   const [pass, setPass] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [devLoadingEmail, setDevLoadingEmail] = useState(null);
+
+  // Acceso directo con las cuentas de prueba de authOptions.js (DEV_USERS).
+  // Solo tienen efecto mientras no exista DATABASE_URL — en cuanto la
+  // configures, estas cuentas dejan de funcionar automáticamente.
+  const devLogin = async (devEmail, devPassword) => {
+    setError("");
+    setDevLoadingEmail(devEmail);
+    const result = await signIn("credentials", { email: devEmail, password: devPassword, redirect: false });
+    if (result?.error) setError("Las cuentas de prueba se desactivaron: ya hay una base de datos real conectada.");
+    setDevLoadingEmail(null);
+  };
 
   const canSubmit = mode === "login"
     ? email.trim() && pass.trim()
@@ -1794,6 +1806,32 @@ function LoginScreen() {
           </div>
           <div style={{ color: COLORS.cream, fontWeight: 700, fontSize: 20, letterSpacing: -0.3 }}>Quinielapp</div>
           <div style={{ color: COLORS.creamDim, fontSize: 12, marginTop: 4 }}>Arma la quiniela con tu banda</div>
+        </div>
+
+        <div style={{
+          background: COLORS.goldSoft, border: `1px dashed ${COLORS.gold}88`, borderRadius: 12,
+          padding: 14, marginBottom: 20,
+        }}>
+          <div style={{ color: COLORS.gold, fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>
+            Modo de pruebas — sin base de datos
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <button onClick={() => devLogin("demo@quinielapp.com", "demo1234")} disabled={!!devLoadingEmail} style={{
+              width: "100%", background: COLORS.bg, border: `1px solid ${COLORS.gold}`, borderRadius: 10,
+              padding: "10px 12px", color: COLORS.cream, fontWeight: 700, fontSize: 12.5, cursor: "pointer", textAlign: "left",
+            }}>
+              {devLoadingEmail === "demo@quinielapp.com" ? "Entrando..." : "Entrar como Demo Rodrigo"}
+            </button>
+            <button onClick={() => devLogin("admin@quinielapp.com", "admin1234")} disabled={!!devLoadingEmail} style={{
+              width: "100%", background: COLORS.bg, border: `1px solid ${COLORS.gold}`, borderRadius: 10,
+              padding: "10px 12px", color: COLORS.cream, fontWeight: 700, fontSize: 12.5, cursor: "pointer", textAlign: "left",
+            }}>
+              {devLoadingEmail === "admin@quinielapp.com" ? "Entrando..." : "Entrar como Demo Admin"}
+            </button>
+          </div>
+          <div style={{ color: COLORS.creamDim, fontSize: 9.5, marginTop: 10, lineHeight: 1.5 }}>
+            demo@quinielapp.com / demo1234 · admin@quinielapp.com / admin1234 — se desactivan solas en cuanto conectes Neon de verdad.
+          </div>
         </div>
 
         <button onClick={() => signIn("facebook")} style={{
