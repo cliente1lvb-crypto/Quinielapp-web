@@ -210,6 +210,32 @@ producción públicamente, agrégale un guardado simple: exige un header
 `x-admin-key` que compares contra una variable de entorno `ADMIN_KEY` al
 principio del handler.
 
+## 9. Panel interno del equipo (`/admin`)
+
+Un reporte en vivo, leído directo de Neon en cada carga (nunca cacheado):
+usuarios registrados (total, por plan, por método de entrada, últimos 10),
+marcador de partidos sincronizado (por estado, por liga, últimos 10), y
+publicidad (impresiones, clics, CTR por anunciante). Cada sección se lee por
+separado — si una tabla no existe todavía o hay un problema de conexión, esa
+sección sola muestra el error, sin tumbar el resto del panel.
+
+### Quién puede entrar
+
+No es un login aparte — usa el mismo login de la app (Google, Facebook o
+correo/contraseña). Lo que decide si alguien ve `/admin` es su correo:
+
+1. Agrega tu correo (y el de tu equipo) a `ADMIN_EMAILS` en `.env.local` y en
+   Vercel, separados por coma: `ADMIN_EMAILS=tu@correo.com,otra@correo.com`
+2. Entra a Quinielapp normal, con cualquier método de login.
+3. Ve a `/admin`. Si tu correo está en la lista, ves el panel. Si no, ves
+   "No autorizado" — aunque tengas sesión iniciada.
+
+Sin sesión iniciada, `/admin` pide que inicies sesión primero.
+
+⚠️ Este control es por correo, no por rol en base de datos — suficiente para
+un equipo chico, pero si crece vale la pena moverlo a una columna `is_admin`
+en la tabla `users` más adelante.
+
 ## Siguientes pasos (no incluidos todavía)
 
 - Endpoint para eliminar cuenta de verdad (`DELETE /api/users`) — hoy el botón
