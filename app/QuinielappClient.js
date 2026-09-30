@@ -268,6 +268,49 @@ const LEAGUES = [
   },
 ];
 
+// ---------- Partidos de muestra con fechas vigentes ----------
+// Mientras no esté contratado el plan de pago de API-Football, la app usa los
+// partidos de ejemplo de arriba, pero les recalcula la fecha para que siempre
+// caigan en el próximo fin de semana (viernes a lunes), nunca en fechas pasadas.
+const DIAS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+const LIGA_MX_SAMPLE = {
+  id: "ligamx", name: "Liga MX", country: "🇲🇽", premium: false,
+  fixtures: [
+    { id: "mx1", home: "Club América", away: "Cruz Azul", date: "x, 7:05 PM", fav: "AME", favPct: 48.2, status: "scheduled" },
+    { id: "mx2", home: "Chivas Guadalajara", away: "Pumas UNAM", date: "x, 9:05 PM", fav: "GDL", favPct: 51.4, status: "scheduled" },
+    { id: "mx3", home: "Tigres UANL", away: "CF Monterrey", date: "x, 7:00 PM", fav: "TIG", favPct: 44.9, status: "scheduled" },
+    { id: "mx4", home: "Club Toluca", away: "Club León", date: "x, 12:00 PM", fav: "TOL", favPct: 57.3, status: "scheduled" },
+    { id: "mx5", home: "Santos Laguna", away: "CF Pachuca", date: "x, 5:00 PM", fav: "PAC", favPct: 46.1, status: "scheduled" },
+  ],
+};
+function sampleLeagues(now = new Date()) {
+  // Próximo viernes (si hoy es vie-dom, el de la semana siguiente para que no queden en el pasado)
+  const base = new Date(now);
+  base.setHours(0, 0, 0, 0);
+  const add = ((5 - base.getDay()) + 7) % 7 || 7;
+  base.setDate(base.getDate() + add);
+  const OFFSETS = [0, 1, 1, 2, 2, 3]; // vie, sáb, sáb, dom, dom, lun
+  return [LIGA_MX_SAMPLE, ...LEAGUES].map(l => ({
+    ...l,
+    fixtures: l.fixtures.map((fx, i) => {
+      const d = new Date(base);
+      d.setDate(base.getDate() + OFFSETS[i % OFFSETS.length]);
+      const time = (fx.date.split(", ")[1] || "1:00 PM").trim();
+      const m = time.match(/(\d+):(\d+)\s*(AM|PM)/i);
+      if (m) {
+        let h = parseInt(m[1], 10) % 12; if (/pm/i.test(m[3])) h += 12;
+        d.setHours(h, parseInt(m[2], 10));
+      }
+      return {
+        ...fx, status: "scheduled", hs: null, as: null, sample: true,
+        date: `${DIAS[d.getDay()]} ${d.getDate()} ${MESES[d.getMonth()]}, ${time}`,
+        kickoffAt: d.toISOString(),
+      };
+    }),
+  }));
+}
+
 // Planes de suscripción — sin tokens, límites por plan
 const PLANS = {
   free: { name: "Gratis", price: 0, maxLeagues: 5, maxGames: 10 },
@@ -313,7 +356,11 @@ const PAST_QUINIELAS = [
 // siempre tenga 10 partidos: 1) Champions League  2) Liga MX  3) MLS  4) Eredivisie / Primeira Liga
 const GLOBAL_SORTEO = {
   numero: 2461,
-  cierra: "Vie 21 Ago, 6:00 PM",
+  cierra: (() => {
+    // Cierre de muestra: el próximo viernes a las 6:00 PM
+    const d = new Date(); d.setDate(d.getDate() + ((((5 - d.getDay()) + 7) % 7) || 7));
+    return `${["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"][d.getDay()]} ${d.getDate()} ${["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"][d.getMonth()]}, 6:00 PM`;
+  })(),
   partidos: [
     { n: 1, home: "Arsenal FC", away: "Coventry City", league: "Premier League" },
     { n: 2, home: "Manchester City", away: "AFC Bournemouth", league: "Premier League" },
@@ -1497,7 +1544,7 @@ function CreateQuinielaModal({ onClose, onCreated, plan, onOpenPlan }) {
       if (!alive) return;
       if (r.ok) { setRealLeagues(r.leagues); setFxState("real"); }
       else if (r.demo) setFxState("demo");
-      else { setFxError(r.error); setFxState("error"); }
+      else setFxState("demo"); // si la API no responde, usamos los partidos de muestra
     });
     return () => { alive = false; };
   }, [dbMode]);
@@ -1509,11 +1556,16 @@ function CreateQuinielaModal({ onClose, onCreated, plan, onOpenPlan }) {
     if (cur && cur.status !== "error") return;
     setFxById(prev => ({ ...prev, [id]: { status: "loading", list: [] } }));
     const r = await api(`/api/fixtures?league=${id}`);
+    // Plan gratis de API-Football (sin temporada actual): pasamos a partidos de muestra.
+    if (!r.ok && /season|plan|subscription|free/i.test(r.error || "")) { setFxState("demo"); return; }
     setFxById(prev => ({ ...prev, [id]: r.ok ? { status: "ok", list: r.fixtures } : { status: "error", list: [], error: r.error } }));
   };
-  const fixturesOf = (l) => fxState === "real" ? ((fxById[l.id] && fxById[l.id].list) || []) : (l.fixtures || []);
+  const fixturesOf = (l) => fxState === "real"
+    ? ((fxById[l.id] && fxById[l.id].list) || [])
+    : ((sample.find(x => x.id === l.id) || l).fixtures || []);
   // Con cuenta real nunca mostramos el calendario de ejemplo (fechas viejas).
-  const leagueList = fxState === "real" && realLeagues ? realLeagues : fxState === "demo" ? LEAGUES : [];
+  const sample = React.useMemo(() => sampleLeagues(), []);
+  const leagueList = fxState === "real" && realLeagues ? realLeagues : fxState === "demo" ? sample : [];
   const [name, setName] = useState("");
   const [period, setPeriod] = useState("semana");
   const [chosenLeagues, setChosenLeagues] = useState([]);
@@ -1624,7 +1676,7 @@ function CreateQuinielaModal({ onClose, onCreated, plan, onOpenPlan }) {
             </div>
             {fxState === "loading" && <div style={{ color: COLORS.creamDim, fontSize: 12, marginBottom: 10 }}>Cargando partidos reales...</div>}
             {fxState === "real" && <div style={{ color: COLORS.gold, fontSize: 11, fontWeight: 700, marginBottom: 10 }}>● Partidos reales de los próximos días · hora del centro de México</div>}
-            {fxState === "demo" && dbMode && <div style={{ color: COLORS.creamDim, fontSize: 11, marginBottom: 10 }}>La conexión con el calendario real no está configurada; mostrando partidos de ejemplo.</div>}
+            {fxState === "demo" && <div style={{ color: COLORS.creamDim, fontSize: 11, marginBottom: 10 }}>Partidos de muestra con fechas del próximo fin de semana.</div>}
             {fxState === "error" && (
               <div style={{ color: COLORS.live, fontSize: 11.5, marginBottom: 10, lineHeight: 1.5, background: `${COLORS.live}14`, border: `1px solid ${COLORS.live}44`, borderRadius: 10, padding: "10px 12px" }}>
                 No pudimos cargar los partidos reales: {fxError}
@@ -1703,6 +1755,9 @@ function CreateQuinielaModal({ onClose, onCreated, plan, onOpenPlan }) {
               )}
               {fxState === "real" && fxById[activeLeague.id] && fxById[activeLeague.id].status === "ok" && fxById[activeLeague.id].list.length === 0 && (
                 <div style={{ color: COLORS.creamDim, fontSize: 12, padding: "10px 0" }}>{activeLeague.name} no tiene partidos en los próximos días (puede estar en descanso). Elige otra liga.</div>
+              )}
+              {fxState === "demo" && (
+                <div style={{ color: COLORS.creamDim, fontSize: 10.5, marginBottom: 8 }}>Partidos de muestra · el calendario real se activa al contratar el plan de datos.</div>
               )}
               {fixturesOf(activeLeague).map(fx => {
                 const isSel = !!selected.find(g => g.id === fx.id);
