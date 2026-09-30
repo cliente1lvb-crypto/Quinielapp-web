@@ -1488,18 +1488,21 @@ function CreateQuinielaModal({ onClose, onCreated, plan, onOpenPlan }) {
   // Partidos reales (API-Football vía /api/fixtures). Si no hay clave o falla,
   // se usan los partidos de ejemplo de LEAGUES.
   const [realLeagues, setRealLeagues] = useState(null);
-  const [fxState, setFxState] = useState(dbMode ? "loading" : "demo"); // loading | real | demo
+  const [fxState, setFxState] = useState(dbMode ? "loading" : "demo"); // loading | real | demo | error
+  const [fxError, setFxError] = useState("");
   useEffect(() => {
     if (!dbMode) return;
     let alive = true;
     api("/api/fixtures").then(r => {
       if (!alive) return;
       if (r.ok) { setRealLeagues(r.leagues.filter(l => l.fixtures.length > 0)); setFxState("real"); }
-      else setFxState("demo");
+      else if (r.demo) setFxState("demo");
+      else { setFxError(r.error); setFxState("error"); }
     });
     return () => { alive = false; };
   }, [dbMode]);
-  const leagueList = fxState === "real" && realLeagues ? realLeagues : LEAGUES;
+  // Con cuenta real nunca mostramos el calendario de ejemplo (fechas viejas).
+  const leagueList = fxState === "real" && realLeagues ? realLeagues : fxState === "demo" ? LEAGUES : [];
   const [name, setName] = useState("");
   const [period, setPeriod] = useState("semana");
   const [chosenLeagues, setChosenLeagues] = useState([]);
@@ -1605,7 +1608,12 @@ function CreateQuinielaModal({ onClose, onCreated, plan, onOpenPlan }) {
             </div>
             {fxState === "loading" && <div style={{ color: COLORS.creamDim, fontSize: 12, marginBottom: 10 }}>Cargando partidos reales...</div>}
             {fxState === "real" && <div style={{ color: COLORS.gold, fontSize: 11, fontWeight: 700, marginBottom: 10 }}>● Partidos reales de los próximos días · hora del centro de México</div>}
-            {fxState === "demo" && dbMode && <div style={{ color: COLORS.creamDim, fontSize: 11, marginBottom: 10 }}>No pudimos cargar el calendario real; mostrando partidos de ejemplo.</div>}
+            {fxState === "demo" && dbMode && <div style={{ color: COLORS.creamDim, fontSize: 11, marginBottom: 10 }}>La conexión con el calendario real no está configurada; mostrando partidos de ejemplo.</div>}
+            {fxState === "error" && (
+              <div style={{ color: COLORS.live, fontSize: 11.5, marginBottom: 10, lineHeight: 1.5, background: `${COLORS.live}14`, border: `1px solid ${COLORS.live}44`, borderRadius: 10, padding: "10px 12px" }}>
+                No pudimos cargar los partidos reales: {fxError}
+              </div>
+            )}
             <div style={{ overflowY: "auto", flex: 1, marginBottom: 12 }}>
               {fxState !== "loading" && leagueList.map(l => {
                 const isSel = !!chosenLeagues.find(x => x.id === l.id);

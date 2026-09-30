@@ -19,5 +19,8 @@ export async function GET() {
   }));
   const allFailed = results.every(r => r.error);
   if (allFailed) return fail(results[0].error || "No se pudo leer API-Football.", 502);
+  if (results.every(r => r.fixtures.length === 0)) {
+    return fail("API-Football respondió, pero sin partidos próximos. Revisa que tu plan incluya la temporada actual.", 502);
+  }
   return ok({ leagues: results });
 }
