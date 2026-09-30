@@ -1495,12 +1495,23 @@ function CreateQuinielaModal({ onClose, onCreated, plan, onOpenPlan }) {
     let alive = true;
     api("/api/fixtures").then(r => {
       if (!alive) return;
-      if (r.ok) { setRealLeagues(r.leagues.filter(l => l.fixtures.length > 0)); setFxState("real"); }
+      if (r.ok) { setRealLeagues(r.leagues); setFxState("real"); }
       else if (r.demo) setFxState("demo");
       else { setFxError(r.error); setFxState("error"); }
     });
     return () => { alive = false; };
   }, [dbMode]);
+  // Partidos de cada liga: se piden solo cuando el usuario abre esa liga.
+  const [fxById, setFxById] = useState({}); // { ligaId: { status, list, error } }
+  const loadLeague = async (id) => {
+    if (fxState !== "real" || !id) return;
+    const cur = fxById[id];
+    if (cur && cur.status !== "error") return;
+    setFxById(prev => ({ ...prev, [id]: { status: "loading", list: [] } }));
+    const r = await api(`/api/fixtures?league=${id}`);
+    setFxById(prev => ({ ...prev, [id]: r.ok ? { status: "ok", list: r.fixtures } : { status: "error", list: [], error: r.error } }));
+  };
+  const fixturesOf = (l) => fxState === "real" ? ((fxById[l.id] && fxById[l.id].list) || []) : (l.fixtures || []);
   // Con cuenta real nunca mostramos el calendario de ejemplo (fechas viejas).
   const leagueList = fxState === "real" && realLeagues ? realLeagues : fxState === "demo" ? LEAGUES : [];
   const [name, setName] = useState("");
@@ -1508,6 +1519,11 @@ function CreateQuinielaModal({ onClose, onCreated, plan, onOpenPlan }) {
   const [chosenLeagues, setChosenLeagues] = useState([]);
   const [activeLeagueId, setActiveLeagueId] = useState(null);
   const [selected, setSelected] = useState([]);
+  useEffect(() => {
+    if (step !== 3) return;
+    const id = (chosenLeagues.find(l => l.id === activeLeagueId) || chosenLeagues[0] || {}).id;
+    loadLeague(id);
+  }, [step, activeLeagueId, fxState]); // eslint-disable-line
 
   const limits = PLANS[plan];
 
@@ -1636,7 +1652,7 @@ function CreateQuinielaModal({ onClose, onCreated, plan, onOpenPlan }) {
                           borderRadius: 999, fontWeight: 800, display: "flex", alignItems: "center", gap: 3,
                         }}><Crown size={9} /> PREMIUM</span>}
                       </div>
-                      <div style={{ color: COLORS.creamDim, fontSize: 11 }}>{l.fixtures.length} partidos disponibles</div>
+                      <div style={{ color: COLORS.creamDim, fontSize: 11 }}>{l.fixtures ? `${l.fixtures.length} partidos disponibles` : "Calendario real"}</div>
                     </div>
                     {isSel ? <span style={{ color: COLORS.gold, fontSize: 16 }}>✓</span> : <ChevronRight size={16} color={COLORS.creamDim} />}
                   </button>
@@ -1676,7 +1692,19 @@ function CreateQuinielaModal({ onClose, onCreated, plan, onOpenPlan }) {
               {selected.length >= limits.maxGames && plan === "free" && " · hazte Premium para agregar hasta 20"}
             </div>
             <div style={{ overflowY: "auto", flex: 1, marginBottom: 12 }}>
-              {activeLeague.fixtures.map(fx => {
+              {fxState === "real" && fxById[activeLeague.id] && fxById[activeLeague.id].status === "loading" && (
+                <div style={{ color: COLORS.creamDim, fontSize: 12, padding: "10px 0" }}>Cargando partidos de {activeLeague.name}...</div>
+              )}
+              {fxState === "real" && fxById[activeLeague.id] && fxById[activeLeague.id].status === "error" && (
+                <div style={{ color: COLORS.live, fontSize: 11.5, padding: "10px 12px", background: `${COLORS.live}14`, border: `1px solid ${COLORS.live}44`, borderRadius: 10, marginBottom: 8 }}>
+                  {fxById[activeLeague.id].error}{" "}
+                  <span onClick={() => loadLeague(activeLeague.id)} style={{ color: COLORS.gold, fontWeight: 700, cursor: "pointer", textDecoration: "underline" }}>Reintentar</span>
+                </div>
+              )}
+              {fxState === "real" && fxById[activeLeague.id] && fxById[activeLeague.id].status === "ok" && fxById[activeLeague.id].list.length === 0 && (
+                <div style={{ color: COLORS.creamDim, fontSize: 12, padding: "10px 0" }}>{activeLeague.name} no tiene partidos en los próximos días (puede estar en descanso). Elige otra liga.</div>
+              )}
+              {fixturesOf(activeLeague).map(fx => {
                 const isSel = !!selected.find(g => g.id === fx.id);
                 const finished = fx.status === "final" || fx.status === "live";
                 const atCap = !isSel && selected.length >= limits.maxGames;
