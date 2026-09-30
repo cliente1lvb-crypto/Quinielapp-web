@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { useSession, signIn, signOut } from "next-auth/react";
-import { Trophy, Plus, Users, MessageCircle, Home as HomeIcon, X, Send, Crown, ChevronRight, Settings, Shield, Smile, Bell, LogOut, Camera, Inbox, BarChart3, Trash2, Flag, MoreVertical, Megaphone, Mail, Search, Ticket, Check, FileText } from "lucide-react";
+import { Trophy, Plus, Users, MessageCircle, Home as HomeIcon, X, Send, Crown, ChevronRight, Settings, Shield, Smile, Bell, LogOut, Camera, Inbox, BarChart3, Trash2, Flag, MoreVertical, Megaphone, Mail, Search, Ticket, Check, FileText, Shirt } from "lucide-react";
 
 // ---------- Design tokens ----------
 // Estilo casa de apuestas: negro profundo, verde neón como acento "momios", rojo vivo para en vivo
@@ -475,18 +475,70 @@ function BottomNav({ tab, setTab }) {
 }
 
 // ---------- Screens ----------
+// ---------- Ranking v2 ----------
+const LEV_COLORS = { L: ["#2BE87A", "#1AA3A3"], E: ["#FFB020", "#FF7A1A"], V: ["#8B5CF6", "#FF3D81"] };
+
+function PageHero({ kicker, title, subtitle, gradient, emoji, children, wide }) {
+  return (
+    <div className="qv-rise" style={{
+      position: "relative", overflow: "hidden", borderRadius: 22, padding: wide ? "24px 28px" : "18px 16px", marginBottom: 18,
+      background: gradient, backgroundSize: "200% 200%", animation: "qv-shine 14s linear infinite alternate",
+      boxShadow: "0 18px 44px rgba(0,0,0,.35)",
+    }}>
+      <div style={{ position: "absolute", inset: 0, background: "radial-gradient(circle at 88% 15%, rgba(255,255,255,.22), transparent 45%)" }} />
+      {emoji && <div className="qv-float" style={{ position: "absolute", right: wide ? 34 : 14, top: wide ? 16 : 12, fontSize: wide ? 78 : 44, animation: "qv-float 5s ease-in-out infinite", filter: "drop-shadow(0 10px 18px rgba(0,0,0,.35))" }}>{emoji}</div>}
+      <div style={{ position: "relative" }}>
+        <div style={{ display: "inline-block", background: "rgba(0,0,0,.25)", borderRadius: 999, padding: "4px 10px", color: "#fff", fontSize: 10.5, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase" }}>{kicker}</div>
+        <div style={{ color: "#fff", fontSize: wide ? 30 : 22, fontWeight: 800, letterSpacing: -0.6, margin: "10px 0 4px", maxWidth: wide ? "75%" : "80%" }}>{title}</div>
+        {subtitle && <div style={{ color: "rgba(255,255,255,.85)", fontSize: 12.5, maxWidth: wide ? "70%" : "85%" }}>{subtitle}</div>}
+        {children && <div style={{ marginTop: 14 }}>{children}</div>}
+      </div>
+    </div>
+  );
+}
+
+function HeroStat({ label, value }) {
+  return (
+    <div style={{ padding: "8px 14px", borderRadius: 12, background: "rgba(0,0,0,.25)", border: "1px solid rgba(255,255,255,.14)" }}>
+      <div style={{ color: "#fff", fontWeight: 800, fontSize: 18, fontFamily: "var(--font-mono), monospace", lineHeight: 1.1 }}>{value}</div>
+      <div style={{ color: "rgba(255,255,255,.75)", fontSize: 9.5, textTransform: "uppercase", letterSpacing: 1, marginTop: 3 }}>{label}</div>
+    </div>
+  );
+}
+
+function SegTabs({ value, onChange, options }) {
+  return (
+    <div style={{ display: "flex", gap: 6, padding: 5, borderRadius: 14, background: "#ffffff08", border: `1px solid ${COLORS.line}`, marginBottom: 16 }}>
+      {options.map(([id, label, c]) => {
+        const on = value === id;
+        return (
+          <button key={id} onClick={() => onChange(id)} style={{
+            flex: 1, padding: "10px 0", borderRadius: 10, border: "none", cursor: "pointer", font: "inherit",
+            background: on ? grad(c, 90) : "transparent", color: on ? "#0A0D0B" : COLORS.creamDim, fontWeight: 800, fontSize: 12.5,
+            boxShadow: on ? "0 6px 16px rgba(0,0,0,.3)" : "none", transition: "all .2s",
+          }}>{label}</button>
+        );
+      })}
+    </div>
+  );
+}
+
 function LEVPicker({ value, onChange }) {
   const opts = [["L", "Local"], ["E", "Empate"], ["V", "Visitante"]];
   return (
     <div style={{ display: "flex", gap: 6 }}>
-      {opts.map(([v, label]) => (
-        <button key={v} onClick={() => onChange(v)} title={label} style={{
-          width: 30, height: 30, borderRadius: 8, cursor: "pointer", fontWeight: 800, fontSize: 12,
-          border: `1.5px solid ${value === v ? COLORS.gold : COLORS.line}`,
-          background: value === v ? COLORS.gold : COLORS.bg,
-          color: value === v ? COLORS.bg : COLORS.creamDim,
-        }}>{v}</button>
-      ))}
+      {opts.map(([v, label]) => {
+        const on = value === v;
+        return (
+          <button key={v} onClick={() => onChange(v)} title={label} style={{
+            width: 34, height: 34, borderRadius: 10, cursor: "pointer", fontWeight: 800, fontSize: 12.5,
+            border: on ? "none" : `1px solid ${COLORS.line}`,
+            background: on ? `linear-gradient(135deg, ${LEV_COLORS[v][0]}, ${LEV_COLORS[v][1]})` : "#ffffff08",
+            color: on ? "#0A0D0B" : COLORS.creamDim, transform: on ? "scale(1.06)" : "none", transition: "all .15s",
+            boxShadow: on ? `0 4px 14px ${LEV_COLORS[v][0]}55` : "none",
+          }}>{v}</button>
+        );
+      })}
     </div>
   );
 }
@@ -494,7 +546,7 @@ function LEVPicker({ value, onChange }) {
 function GlobalQuinielaCard({ joinedGlobal, onJoinGlobal }) {
   const { globalData, submitGlobal } = React.useContext(AppCtx);
   const sorteo = globalData && globalData.draw ? {
-    numero: globalData.draw.id, cierra: globalData.draw.closeLabel || "",
+    numero: globalData.draw.id,
     partidos: globalData.matches.map(m => ({ n: m.n, home: m.home, away: m.away, league: m.league })),
   } : GLOBAL_SORTEO;
   const myTicket = globalData ? globalData.myTicket : null;
@@ -514,133 +566,165 @@ function GlobalQuinielaCard({ joinedGlobal, onJoinGlobal }) {
     if (r.ok) setSent(true); else setErr(r.error);
   };
 
-  return (
-    <div style={{
-      background: `linear-gradient(135deg, ${COLORS.bgCardAlt}, ${COLORS.bgCard})`,
-      border: `1px solid ${COLORS.gold}44`, borderRadius: 16, padding: 16, marginBottom: 18,
-    }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <BarChart3 size={16} color={COLORS.gold} />
-          <span style={{ color: COLORS.cream, fontWeight: 800, fontSize: 13.5 }}>Quiniela Global · Sorteo #{sorteo.numero}</span>
-        </div>
-      </div>
-      <div style={{ color: COLORS.creamDim, fontSize: 11, marginBottom: 14 }}>
-        2 partidos de cada una de las 5 grandes ligas, generados automático cada semana. Pronostica L / E / V. Cierra {sorteo.cierra}.
-      </div>
-
-      {!joinedGlobal ? (
-        <button onClick={onJoinGlobal} style={{
-          width: "100%", background: COLORS.gold, border: "none", borderRadius: 10, padding: "11px 0",
-          color: COLORS.bg, fontWeight: 800, fontSize: 13, cursor: "pointer",
-        }}>Unirme a la Quiniela Global — gratis</button>
-      ) : (
-        <>
-          {sorteo.partidos.map(p => (
-            <div key={p.n} style={{
-              display: "flex", alignItems: "center", gap: 10, padding: "9px 0",
-              borderBottom: `1px solid ${COLORS.line}`,
-            }}>
-              <div style={{
-                width: 18, textAlign: "center", color: COLORS.creamDim, fontWeight: 800,
-                fontSize: 11, fontFamily: "var(--font-mono), 'Courier New', monospace",
-              }}>{p.n}</div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ color: COLORS.cream, fontSize: 11.5, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                  {p.home} vs {p.away}
-                </div>
-                <div style={{ color: COLORS.creamDim, fontSize: 9.5 }}>{p.league}</div>
-              </div>
-              <LEVPicker value={picks[p.n]} onChange={(v) => { if (!sent) setPicks(prev => ({ ...prev, [p.n]: v })); }} />
+  if (!joinedGlobal) {
+    return (
+      <div style={{ borderRadius: 20, padding: 18, marginBottom: 18, background: "linear-gradient(160deg, #171d19, #111512)", border: "1px solid rgba(255,255,255,.07)" }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+          {sorteo.partidos.slice(0, 6).map(p => (
+            <div key={p.n} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", borderRadius: 999, background: "#ffffff08", border: `1px solid ${COLORS.line}` }}>
+              <TeamBadge name={p.home} size={18} /><span style={{ color: COLORS.creamDim, fontSize: 10 }}>vs</span><TeamBadge name={p.away} size={18} />
             </div>
           ))}
+          {sorteo.partidos.length > 6 && <span style={{ color: COLORS.creamDim, fontSize: 11, alignSelf: "center" }}>+{sorteo.partidos.length - 6} más</span>}
+        </div>
+        <button onClick={onJoinGlobal} style={{
+          width: "100%", border: "none", borderRadius: 14, padding: "14px 0", cursor: "pointer", font: "inherit",
+          background: "linear-gradient(90deg,#2BE87A,#22D3EE)", color: "#0A0D0B", fontWeight: 800, fontSize: 14,
+          boxShadow: "0 10px 26px rgba(43,232,122,.3)",
+        }}>Llenar mi boleto — es gratis</button>
+      </div>
+    );
+  }
 
-          {sent ? (
-            <div style={{
-              marginTop: 12, display: "flex", alignItems: "center", gap: 10, background: COLORS.goldSoft,
-              border: `1px solid ${COLORS.gold}66`, borderRadius: 10, padding: "11px 12px",
-            }}>
-              <Check size={16} color={COLORS.gold} strokeWidth={3} />
-              <div style={{ flex: 1 }}>
-                <div style={{ color: COLORS.cream, fontWeight: 800, fontSize: 12.5 }}>Boleto enviado</div>
-                <div style={{ color: COLORS.creamDim, fontSize: 10.5 }}>Tus 10 pronósticos quedaron registrados para el sorteo #{sorteo.numero}.</div>
-              </div>
-              <button onClick={() => setSent(false)} style={{
-                background: "none", border: `1px solid ${COLORS.line}`, borderRadius: 8, padding: "6px 10px",
-                color: COLORS.creamDim, fontSize: 11, fontWeight: 700, cursor: "pointer",
-              }}>Editar</button>
-            </div>
-          ) : (
-            <button onClick={send} disabled={done < total || sending} style={{
-              width: "100%", marginTop: 12, background: done >= total ? COLORS.gold : COLORS.line, border: "none",
-              borderRadius: 10, padding: "11px 0", color: done >= total ? COLORS.bg : COLORS.creamDim,
-              fontWeight: 800, fontSize: 13, cursor: done >= total ? "pointer" : "default",
-            }}>
-              {sending ? "Enviando..." : done >= total ? "Enviar boleto" : `Faltan ${total - done} pronósticos`}
-            </button>
-          )}
-          {err && <div style={{ color: COLORS.live, fontSize: 11.5, marginTop: 8, textAlign: "center" }}>{err}</div>}
-        </>
+  return (
+    <div style={{ borderRadius: 20, padding: 16, marginBottom: 18, background: "linear-gradient(160deg, #171d19, #111512)", border: "1px solid rgba(255,255,255,.07)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+        <span style={{ color: COLORS.cream, fontWeight: 800, fontSize: 14, flex: 1 }}>🧾 Tu boleto</span>
+        <span style={{ color: COLORS.creamDim, fontSize: 11 }}>{done}/{total}</span>
+        <div style={{ width: 120, height: 6, borderRadius: 3, background: "#ffffff10", overflow: "hidden" }}>
+          <div style={{ width: `${(done / total) * 100}%`, height: "100%", background: "linear-gradient(90deg,#2BE87A,#22D3EE)", transition: "width .3s" }} />
+        </div>
+      </div>
+      <div style={{ display: "flex", gap: 12, marginBottom: 10, fontSize: 10.5, color: COLORS.creamDim }}>
+        {Object.entries({ L: "Gana local", E: "Empate", V: "Gana visitante" }).map(([k, l]) => (
+          <span key={k} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <span style={{ width: 10, height: 10, borderRadius: 3, background: `linear-gradient(135deg, ${LEV_COLORS[k][0]}, ${LEV_COLORS[k][1]})` }} />{k} = {l}
+          </span>
+        ))}
+      </div>
+      {sorteo.partidos.map(p => (
+        <div key={p.n} style={{
+          display: "flex", alignItems: "center", gap: 10, padding: "9px 10px", marginBottom: 6, borderRadius: 12,
+          background: picks[p.n] ? `${LEV_COLORS[picks[p.n]][0]}0f` : "#ffffff05", border: `1px solid ${picks[p.n] ? LEV_COLORS[picks[p.n]][0] + "33" : "transparent"}`,
+        }}>
+          <span style={{ width: 20, textAlign: "center", color: COLORS.creamDim, fontWeight: 800, fontSize: 11, fontFamily: "var(--font-mono), monospace" }}>{p.n}</span>
+          <TeamBadge name={p.home} size={26} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ color: COLORS.cream, fontSize: 12, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.home} <span style={{ color: COLORS.creamDim, fontWeight: 500 }}>vs</span> {p.away}</div>
+            <div style={{ color: COLORS.creamDim, fontSize: 10 }}>{p.league}</div>
+          </div>
+          <TeamBadge name={p.away} size={26} />
+          <LEVPicker value={picks[p.n]} onChange={(v) => { if (!sent) setPicks(prev => ({ ...prev, [p.n]: v })); }} />
+        </div>
+      ))}
+      {sent ? (
+        <div style={{
+          marginTop: 10, display: "flex", alignItems: "center", gap: 10, borderRadius: 14, padding: "12px 14px",
+          background: "linear-gradient(90deg, #2BE87A22, #22D3EE14)", border: "1px solid #2BE87A55",
+        }}>
+          <span style={{ fontSize: 20 }}>✅</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ color: COLORS.cream, fontWeight: 800, fontSize: 13 }}>¡Boleto enviado!</div>
+            <div style={{ color: COLORS.creamDim, fontSize: 11 }}>Tus {total} pronósticos quedaron registrados en el sorteo #{sorteo.numero}.</div>
+          </div>
+          <button onClick={() => setSent(false)} style={{ background: "#ffffff10", border: "none", borderRadius: 9, padding: "7px 12px", color: COLORS.cream, fontSize: 11.5, fontWeight: 700, cursor: "pointer" }}>Editar</button>
+        </div>
+      ) : (
+        <button onClick={send} disabled={done < total || sending} style={{
+          width: "100%", marginTop: 10, border: "none", borderRadius: 14, padding: "13px 0", font: "inherit",
+          background: done >= total ? "linear-gradient(90deg,#2BE87A,#22D3EE)" : "#ffffff10",
+          color: done >= total ? "#0A0D0B" : COLORS.creamDim, fontWeight: 800, fontSize: 13.5, cursor: done >= total ? "pointer" : "default",
+        }}>{sending ? "Enviando..." : done >= total ? "Enviar boleto 🚀" : `Te faltan ${total - done} pronósticos`}</button>
       )}
+      {err && <div style={{ color: COLORS.live, fontSize: 11.5, marginTop: 8, textAlign: "center" }}>{err}</div>}
+    </div>
+  );
+}
+
+function RankRow({ p, max = 10, me }) {
+  const idx = (p.rank - 1) % CARD_GRADIENTS.length;
+  return (
+    <div className="qv-card" style={{
+      display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", marginBottom: 7, borderRadius: 14,
+      background: me ? "linear-gradient(90deg, #2BE87A1f, #22D3EE0d)" : "linear-gradient(160deg, #171d19, #111512)",
+      border: me ? "1.5px solid #2BE87A66" : "1px solid rgba(255,255,255,.06)",
+    }}>
+      <span style={{ width: 30, textAlign: "center", color: me ? VIBE.green : COLORS.creamDim, fontWeight: 800, fontSize: 13, fontFamily: "var(--font-mono), monospace" }}>#{p.rank}</span>
+      <span style={{ fontSize: 20 }}>{p.avatar}</span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ color: COLORS.cream, fontWeight: 700, fontSize: 12.5 }}>{p.name}{p.streak > 0 && <span style={{ color: VIBE.amber, fontSize: 10.5, marginLeft: 8 }}>🔥 racha de {p.streak}</span>}</div>
+        <div style={{ height: 5, borderRadius: 3, background: "#ffffff0d", overflow: "hidden", marginTop: 6 }}>
+          <div style={{ width: `${(p.aciertos / max) * 100}%`, height: "100%", background: me ? "linear-gradient(90deg,#2BE87A,#22D3EE)" : grad(idx, 90) }} />
+        </div>
+      </div>
+      <span style={{ color: COLORS.cream, fontWeight: 800, fontSize: 14, fontFamily: "var(--font-mono), monospace" }}>{p.aciertos}<span style={{ color: COLORS.creamDim, fontSize: 11 }}>/{max}</span></span>
+    </div>
+  );
+}
+
+function Podium({ rows }) {
+  const order = [rows[1], rows[0], rows[2]];
+  const h = [92, 120, 76];
+  const medal = ["🥈", "🥇", "🥉"];
+  const col = [["#C8D0DA", "#8A94A3"], ["#FFD34D", "#FFB020"], ["#E7A36B", "#B8703A"]];
+  return (
+    <div style={{ display: "flex", alignItems: "flex-end", gap: 10, padding: "8px 6px 0", marginBottom: 14 }}>
+      {order.map((p, k) => p ? (
+        <div key={k} className="qv-rise" style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6, animationDelay: `${k * 90}ms` }}>
+          <div style={{ fontSize: k === 1 ? 34 : 28 }}>{p.avatar}</div>
+          <div style={{ color: COLORS.cream, fontSize: 12, fontWeight: 800, textAlign: "center", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
+          <div style={{
+            width: "100%", height: h[k], borderRadius: "14px 14px 6px 6px", background: `linear-gradient(180deg, ${col[k][0]}, ${col[k][1]})`,
+            display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 10, boxShadow: `0 10px 26px ${col[k][1]}44`,
+          }}>
+            <span style={{ fontSize: 22 }}>{medal[k]}</span>
+            <span style={{ color: "#1a1a1a", fontWeight: 800, fontSize: 14, fontFamily: "var(--font-mono), monospace" }}>{p.aciertos}/10</span>
+          </div>
+        </div>
+      ) : <div key={k} style={{ flex: 1 }} />)}
     </div>
   );
 }
 
 function TournamentDetail({ t, onClose, onJoin }) {
+  const idx = hashStr(t.id) % CARD_GRADIENTS.length;
   return (
-    <div style={{
-      position: "absolute", inset: 0, background: COLORS.bg, zIndex: 10,
-      display: "flex", flexDirection: "column",
-    }}>
-      <div style={{ padding: "18px 16px 14px", borderBottom: `1px solid ${COLORS.line}`, display: "flex", alignItems: "center", gap: 10 }}>
-        <button onClick={onClose} style={{ background: "none", border: "none", color: COLORS.creamDim, cursor: "pointer", fontSize: 18 }}>←</button>
-        <div style={{ fontSize: 20 }}>{t.emoji}</div>
-        <div>
-          <div style={{ color: COLORS.cream, fontWeight: 800, fontSize: 15 }}>{t.name}</div>
-          <div style={{ color: COLORS.creamDim, fontSize: 11 }}>{t.dates} · {t.participants.toLocaleString("es-MX")} jugadores</div>
+    <div style={{ position: "absolute", inset: 0, background: COLORS.bg, zIndex: 10, display: "flex", flexDirection: "column" }}>
+      <div style={{ position: "relative", padding: "18px 16px 18px", background: grad(idx), overflow: "hidden" }}>
+        <div style={{ position: "absolute", inset: 0, background: "radial-gradient(circle at 85% 20%, rgba(255,255,255,.25), transparent 50%)" }} />
+        <div style={{ position: "relative", display: "flex", alignItems: "center", gap: 10 }}>
+          <button onClick={onClose} style={{ background: "rgba(0,0,0,.25)", border: "none", color: "#fff", cursor: "pointer", fontSize: 16, width: 32, height: 32, borderRadius: 10 }}>←</button>
+          <div style={{ fontSize: 30 }}>{t.emoji}</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ color: "#fff", fontWeight: 800, fontSize: 17 }}>{t.name}</div>
+            <div style={{ color: "rgba(255,255,255,.85)", fontSize: 11 }}>{t.region ? `📍 ${t.region} · ` : ""}{t.dates} · {t.participants.toLocaleString("es-MX")} jugadores</div>
+          </div>
         </div>
       </div>
-
       <div style={{ padding: 16, overflowY: "auto", flex: 1 }}>
-        <div style={{
-          background: COLORS.bgCard, border: `1px solid ${COLORS.line}`, borderRadius: 12,
-          padding: 14, marginBottom: 16,
-        }}>
-          {t.region && <div style={{ color: COLORS.teal, fontSize: 11, fontWeight: 700, marginBottom: 8 }}>📍 Torneo {t.region === "Nacional" ? "nacional" : `regional · ${t.region}`}</div>}
-          {t.description && <div style={{ color: COLORS.creamDim, fontSize: 12, lineHeight: 1.5, marginBottom: 10 }}>{t.description}</div>}
-          <div style={{ color: COLORS.creamDim, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>Premio</div>
-          <div style={{ color: COLORS.gold, fontWeight: 700, fontSize: 13 }}>{t.prize}</div>
+        {t.description && <div style={{ color: COLORS.creamDim, fontSize: 12.5, lineHeight: 1.55, marginBottom: 12 }}>{t.description}</div>}
+        <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+          <div style={{ flex: 1, borderRadius: 14, padding: 12, background: "linear-gradient(135deg,#FFB02022,#FF3D8114)", border: "1px solid #FFB02044" }}>
+            <div style={{ color: COLORS.creamDim, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.8 }}>🎁 Premio</div>
+            <div style={{ color: VIBE.amber, fontWeight: 800, fontSize: 13, marginTop: 4 }}>{t.prize}</div>
+          </div>
           {t.joined && t.yourRank && (
-            <div style={{ color: COLORS.creamDim, fontSize: 11.5, marginTop: 8 }}>Vas en el lugar <b style={{ color: COLORS.cream }}>#{t.yourRank}</b></div>
+            <div style={{ borderRadius: 14, padding: 12, background: "linear-gradient(135deg,#2BE87A22,#22D3EE14)", border: "1px solid #2BE87A44", minWidth: 110 }}>
+              <div style={{ color: COLORS.creamDim, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.8 }}>Tu lugar</div>
+              <div style={{ color: VIBE.green, fontWeight: 800, fontSize: 22, fontFamily: "var(--font-mono), monospace" }}>#{t.yourRank}</div>
+            </div>
           )}
         </div>
-
         {!t.joined && t.status !== "Finalizado" && (
           <button onClick={onJoin} style={{
-            width: "100%", background: COLORS.gold, border: "none", borderRadius: 12, padding: "12px 0",
-            color: COLORS.bg, fontWeight: 800, fontSize: 13.5, cursor: "pointer", marginBottom: 16,
+            width: "100%", border: "none", borderRadius: 14, padding: "13px 0", marginBottom: 16, cursor: "pointer", font: "inherit",
+            background: grad(idx, 90), color: "#0A0D0B", fontWeight: 800, fontSize: 14, boxShadow: "0 10px 24px rgba(0,0,0,.35)",
           }}>Unirme al torneo</button>
         )}
-
-        <div style={{ color: COLORS.creamDim, fontSize: 11, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>
-          {t.status === "Finalizado" ? "Tabla final" : "Tabla del torneo"}
-        </div>
-        {t.table.length === 0 ? (
-          <div style={{ color: COLORS.creamDim, fontSize: 12, textAlign: "center", padding: 20 }}>Aún no arranca — sé de los primeros en unirte.</div>
-        ) : t.table.map(p => (
-          <div key={p.rank} style={{
-            display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", marginBottom: 7,
-            borderRadius: 12, background: p.rank <= 3 ? COLORS.goldSoft : COLORS.bgCard,
-            border: `1px solid ${p.rank <= 3 ? COLORS.gold + "55" : COLORS.line}`,
-          }}>
-            <div style={{ width: 22, textAlign: "center", fontFamily: "var(--font-mono), 'Courier New', monospace", fontWeight: 800, color: p.rank === 1 ? COLORS.gold : COLORS.creamDim, fontSize: 13 }}>
-              {p.rank <= 3 ? ["🥇", "🥈", "🥉"][p.rank - 1] : p.rank}
-            </div>
-            <div style={{ fontSize: 19 }}>{p.avatar}</div>
-            <div style={{ flex: 1, color: COLORS.cream, fontWeight: 700, fontSize: 12.5 }}>{p.name}</div>
-            <ScoreDigit>{p.aciertos}</ScoreDigit>
-          </div>
-        ))}
+        <div style={{ color: COLORS.cream, fontWeight: 800, fontSize: 14, marginBottom: 10 }}>{t.status === "Finalizado" ? "🏁 Tabla final" : "📊 Tabla del torneo"}</div>
+        {t.table.length === 0
+          ? <div style={{ color: COLORS.creamDim, fontSize: 12, textAlign: "center", padding: 20 }}>Aún no arranca — sé de los primeros en unirte.</div>
+          : t.table.map(p => <RankRow key={p.rank} p={p} max={Math.max(10, ...t.table.map(x => x.aciertos))} me={p.name === "Tú"} />)}
       </div>
     </div>
   );
@@ -667,130 +751,112 @@ function TorneosTab() {
     setOpenTournament(updated || { ...t, joined: true });
     toast(`Ya estás inscrito en ${t.name}.`);
   };
-
-  const statusColor = (s) => s === "En curso" ? COLORS.live : s === "Abierto" ? COLORS.gold : COLORS.creamDim;
+  const statusStyle = (s) => s === "En curso"
+    ? { background: "linear-gradient(90deg,#FF3B3B,#FF3D81)", color: "#fff" }
+    : s === "Abierto" ? { background: "linear-gradient(90deg,#2BE87A,#22D3EE)", color: "#0A0D0B" } : { background: "#ffffff12", color: COLORS.creamDim };
 
   return (
     <div>
-      <div style={{ color: COLORS.creamDim, fontSize: 11.5, marginBottom: 14, lineHeight: 1.5 }}>
-        Compite en torneos globales con fecha de inicio y fin, tabla propia y premio al ganador.
-      </div>
       {dbMode && dbList === null && <div style={{ color: COLORS.creamDim, fontSize: 12 }}>Cargando torneos...</div>}
       {dbMode && dbList && dbList.length === 0 && (
-        <div style={{ color: COLORS.creamDim, fontSize: 12.5, textAlign: "center", padding: 24, background: COLORS.bgCard, border: `1px dashed ${COLORS.line}`, borderRadius: 14 }}>
-          No hay torneos abiertos por ahora. ¡Pronto anunciamos el siguiente!
+        <div style={{ textAlign: "center", padding: "34px 20px", borderRadius: 20, background: "linear-gradient(160deg,#1a1530,#121613)", border: "1px dashed rgba(139,92,246,.4)" }}>
+          <div style={{ fontSize: 40, marginBottom: 8 }}>🏟️</div>
+          <div style={{ color: COLORS.cream, fontWeight: 800, fontSize: 15 }}>No hay torneos abiertos por ahora</div>
+          <div style={{ color: COLORS.creamDim, fontSize: 12, marginTop: 4 }}>¡Pronto anunciamos el siguiente! Te avisaremos por notificación.</div>
         </div>
       )}
-      {list.map(t => {
-        const isJoined = joined[t.id] ?? t.joined;
-        return (
-          <button key={t.id} onClick={() => setOpenTournament({ ...t, joined: isJoined })} style={{
-            width: "100%", textAlign: "left", background: COLORS.bgCard, border: `1px solid ${COLORS.line}`,
-            borderRadius: 14, padding: 14, marginBottom: 10, cursor: "pointer",
-          }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ fontSize: 22 }}>{t.emoji}</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ color: COLORS.cream, fontWeight: 700, fontSize: 13.5 }}>{t.name}</div>
-                <div style={{ color: COLORS.creamDim, fontSize: 11, marginTop: 2 }}>{t.region ? `📍 ${t.region} · ` : ""}{t.dates} · {t.participants.toLocaleString("es-MX")} jugadores</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
+        {list.map(t => {
+          const isJoined = joined[t.id] ?? t.joined;
+          const idx = hashStr(t.id) % CARD_GRADIENTS.length;
+          return (
+            <button key={t.id} onClick={() => setOpenTournament({ ...t, joined: isJoined })} className="qv-card" style={{
+              textAlign: "left", cursor: "pointer", font: "inherit", padding: 0, overflow: "hidden", borderRadius: 20,
+              border: "1px solid rgba(255,255,255,.07)", background: "linear-gradient(160deg, #171d19, #111512)",
+            }}>
+              <div style={{ position: "relative", padding: "16px 16px 14px", background: grad(idx), overflow: "hidden" }}>
+                <div style={{ position: "absolute", right: -6, bottom: -14, fontSize: 70, opacity: 0.35 }}>{t.emoji}</div>
+                <span style={{ position: "relative", fontSize: 9.5, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase", padding: "4px 9px", borderRadius: 999, ...statusStyle(t.status), display: "inline-flex", alignItems: "center", gap: 5 }}>
+                  {t.status === "En curso" && <span className="qv-live-dot" style={{ background: "#fff" }} />}{t.status}
+                </span>
+                <div style={{ position: "relative", color: "#fff", fontWeight: 800, fontSize: 16, marginTop: 10, maxWidth: "80%" }}>{t.name}</div>
+                {t.region && <div style={{ position: "relative", color: "rgba(255,255,255,.9)", fontSize: 11, marginTop: 3 }}>📍 {t.region}</div>}
               </div>
-              <ChevronRight size={17} color={COLORS.creamDim} />
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10 }}>
-              <span style={{
-                fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: statusColor(t.status),
-                background: `${statusColor(t.status)}22`, padding: "3px 8px", borderRadius: 999,
-              }}>{t.status === "En curso" && "● "}{t.status}</span>
-              {isJoined && <span style={{ color: COLORS.gold, fontSize: 10.5, fontWeight: 700 }}>Ya estás dentro ✓</span>}
-            </div>
-          </button>
-        );
-      })}
+              <div style={{ padding: "12px 16px 14px" }}>
+                <div style={{ color: COLORS.creamDim, fontSize: 11 }}>{t.dates}</div>
+                <div style={{ color: VIBE.amber, fontSize: 12, fontWeight: 700, margin: "6px 0 10px" }}>🎁 {t.prize}</div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ color: COLORS.creamDim, fontSize: 11 }}>👥 {t.participants.toLocaleString("es-MX")} jugadores</span>
+                  {isJoined ? <span style={{ color: VIBE.green, fontSize: 11, fontWeight: 800 }}>✓ Inscrito</span> : <span style={{ color: VIBE.cyan, fontSize: 11, fontWeight: 800 }}>Ver torneo →</span>}
+                </div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
       {openTournament && (
-        <TournamentDetail
-          t={openTournament}
-          onClose={() => setOpenTournament(null)}
-          onJoin={() => joinTournament(openTournament)}
-        />
+        <TournamentDetail t={openTournament} onClose={() => setOpenTournament(null)} onJoin={() => joinTournament(openTournament)} />
       )}
     </div>
   );
 }
 
 function RankingScreen({ onJoinGlobal, joinedGlobal }) {
-  const { globalData } = React.useContext(AppCtx);
-  const [section, setSection] = useState("global"); // global | torneos
+  const { globalData, userName } = React.useContext(AppCtx);
+  const [section, setSection] = useState("global");
+  const [wide, setWide] = useState(false);
+  useEffect(() => { const f = () => setWide(window.innerWidth >= 900); f(); window.addEventListener("resize", f); return () => window.removeEventListener("resize", f); }, []);
+  const allRows = globalData ? globalData.ranking : GLOBAL_RANKING;
   const rankingRows = globalData ? globalData.ranking.filter(r => !r.me) : GLOBAL_RANKING;
   const myRow = globalData ? (globalData.me ? { rank: globalData.me.rank, name: "Tú", avatar: "🦁", aciertos: globalData.me.aciertos } : null) : YOU_GLOBAL;
   const showMe = globalData ? !!globalData.me : joinedGlobal;
+  const players = globalData ? globalData.totalPlayers : YOU_GLOBAL.totalPlayers;
+  const drawNo = globalData && globalData.draw ? globalData.draw.id : GLOBAL_SORTEO.numero;
+  const closesAt = (globalData && globalData.draw && globalData.draw.closesAt && new Date(globalData.draw.closesAt) > new Date()) ? globalData.draw.closesAt : nextFridayEvening();
 
   return (
-    <div style={{ padding: "20px 16px 16px", overflowY: "auto", flex: 1 }}>
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ color: COLORS.creamDim, fontSize: 12, letterSpacing: 1.5, textTransform: "uppercase" }}>Ranking</div>
-        <div style={{ color: COLORS.cream, fontSize: 24, fontWeight: 800, marginTop: 2 }}>Compite con todos</div>
-      </div>
+    <div style={{ padding: wide ? 0 : "18px 14px 16px", overflowY: wide ? "visible" : "auto", flex: 1 }}>
+      <VibeStyles />
+      <PageHero
+        wide={wide}
+        kicker={`🏆 Ranking · Sorteo #${drawNo}`}
+        title="Compite contra todo México"
+        subtitle="10 partidos de las 5 grandes ligas. Pronostica L / E / V y escala en la tabla global."
+        gradient="linear-gradient(120deg, #6D3FE0 0%, #C0297A 45%, #FF7A1A 100%)"
+        emoji="🏆"
+      >
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+          <Countdown to={closesAt} />
+          <HeroStat label="Jugadores" value={Number(players || 0).toLocaleString("es-MX")} />
+          <HeroStat label="Tu lugar" value={myRow && showMe ? `#${myRow.rank}` : "—"} />
+        </div>
+      </PageHero>
 
-      <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
-        {[["global", "Quiniela Global"], ["torneos", "Torneos"]].map(([id, label]) => (
-          <button key={id} onClick={() => setSection(id)} style={{
-            flex: 1, padding: "9px 0", borderRadius: 10, border: "none", cursor: "pointer",
-            background: section === id ? COLORS.gold : COLORS.bgCard,
-            color: section === id ? COLORS.bg : COLORS.creamDim, fontWeight: 700, fontSize: 12,
-          }}>{label}</button>
-        ))}
-      </div>
+      <SegTabs value={section} onChange={setSection} options={[["global", "🌎 Quiniela Global", 0], ["torneos", "🏟️ Torneos", 1]]} />
 
       {section === "global" ? (
-        <>
-          <GlobalQuinielaCard joinedGlobal={joinedGlobal} onJoinGlobal={onJoinGlobal} />
-
-          <AdBanner placement="ranking_banner" />
-
-          <div style={{ color: COLORS.creamDim, fontSize: 11, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Top jugadores del sorteo</div>
-          {globalData && rankingRows.length === 0 && !globalData.me && (
-            <div style={{ color: COLORS.creamDim, fontSize: 12, textAlign: "center", padding: "18px 0" }}>
-              Todavía nadie envía su boleto de este sorteo. ¡Sé el primero!
-            </div>
-          )}
-          {rankingRows.map(p => (
-            <div key={p.rank} style={{
-              display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", marginBottom: 7,
-              borderRadius: 12, background: p.rank <= 3 ? COLORS.goldSoft : COLORS.bgCard,
-              border: `1px solid ${p.rank <= 3 ? COLORS.gold + "55" : COLORS.line}`,
-            }}>
-              <div style={{
-                width: 22, textAlign: "center", fontFamily: "var(--font-mono), 'Courier New', monospace", fontWeight: 800,
-                color: p.rank === 1 ? COLORS.gold : COLORS.creamDim, fontSize: 13,
-              }}>{p.rank <= 3 ? ["🥇", "🥈", "🥉"][p.rank - 1] : p.rank}</div>
-              <div style={{ fontSize: 19 }}>{p.avatar}</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ color: COLORS.cream, fontWeight: 700, fontSize: 12.5 }}>{p.name}</div>
-                {p.streak > 0 && (
-                  <div style={{ color: COLORS.gold, fontSize: 10, marginTop: 1 }}>🔥 {p.streak} sorteos seguidos acertando</div>
-                )}
+        <div style={{ display: wide ? "grid" : "block", gridTemplateColumns: "minmax(0, 1.15fr) minmax(0, 1fr)", gap: 18, alignItems: "start" }}>
+          <div>
+            <GlobalQuinielaCard joinedGlobal={joinedGlobal} onJoinGlobal={onJoinGlobal} />
+            <AdBanner placement="ranking_banner" />
+          </div>
+          <div>
+            <div style={{ color: COLORS.cream, fontWeight: 800, fontSize: 15, marginBottom: 10 }}>🔥 Top jugadores del sorteo</div>
+            {allRows.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "30px 16px", borderRadius: 20, background: "linear-gradient(160deg,#1a1530,#121613)", border: "1px dashed rgba(139,92,246,.4)" }}>
+                <div style={{ fontSize: 40, marginBottom: 6 }}>🥇</div>
+                <div style={{ color: COLORS.cream, fontWeight: 800, fontSize: 14 }}>El podio está vacío</div>
+                <div style={{ color: COLORS.creamDim, fontSize: 12, marginTop: 4 }}>Manda tu boleto y sé el primero en aparecer aquí.</div>
               </div>
-              <div style={{ textAlign: "right" }}>
-                <ScoreDigit>{p.aciertos}/10</ScoreDigit>
-              </div>
-            </div>
-          ))}
-
-          {showMe && myRow && (
-            <div style={{
-              display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", marginTop: 4,
-              borderRadius: 12, background: COLORS.bg, border: `1.5px dashed ${COLORS.gold}66`,
-            }}>
-              <div style={{
-                width: 22, textAlign: "center", fontFamily: "var(--font-mono), 'Courier New', monospace", fontWeight: 800,
-                color: COLORS.gold, fontSize: 12,
-              }}>#{myRow.rank}</div>
-              <div style={{ fontSize: 19 }}>{myRow.avatar}</div>
-              <div style={{ flex: 1, color: COLORS.cream, fontWeight: 700, fontSize: 12.5 }}>{myRow.name}</div>
-              <ScoreDigit>{myRow.aciertos}/10</ScoreDigit>
-            </div>
-          )}
-        </>
+            ) : (
+              <>
+                <Podium rows={allRows.slice(0, 3)} />
+                {rankingRows.filter(p => p.rank > 3).map(p => <RankRow key={p.rank} p={p} />)}
+                {showMe && myRow && myRow.rank > 3 && <RankRow p={{ ...myRow, name: `${userName} (tú)` }} me />}
+              </>
+            )}
+          </div>
+        </div>
       ) : (
         <TorneosTab />
       )}
@@ -799,21 +865,27 @@ function RankingScreen({ onJoinGlobal, joinedGlobal }) {
 }
 
 function EmptyQuinielasState({ onCreate }) {
+  const steps = [["🏆", "Crea tu quiniela", "Elige ligas y partidos del fin de semana"], ["📲", "Invita a tu banda", "Comparte el código por WhatsApp"], ["🎯", "Pronostica y gana", "5 pts marcador exacto · 3 por resultado"]];
   return (
-    <div style={{
-      display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center",
-      padding: "36px 20px", background: COLORS.bgCard, border: `1px dashed ${COLORS.line}`, borderRadius: 16,
-    }}>
-      <div style={{ fontSize: 34, marginBottom: 10 }}>🏆</div>
-      <div style={{ color: COLORS.cream, fontWeight: 800, fontSize: 15, marginBottom: 6 }}>Aún no tienes quinielas</div>
-      <div style={{ color: COLORS.creamDim, fontSize: 12, marginBottom: 18, maxWidth: 240 }}>
-        Crea tu primera quiniela y arma el pleito con tu banda para el próximo fin de semana.
+    <div style={{ position: "relative", overflow: "hidden", borderRadius: 22, padding: "30px 20px", textAlign: "center", background: "linear-gradient(160deg, #13201a, #111512)", border: "1px solid rgba(43,232,122,.2)" }}>
+      <div style={{ position: "absolute", top: -60, left: "50%", transform: "translateX(-50%)", width: 260, height: 160, background: "radial-gradient(closest-side, #2BE87A33, transparent)" }} />
+      <div className="qv-float" style={{ position: "relative", fontSize: 48, animation: "qv-float 5s ease-in-out infinite", display: "inline-block" }}>🏆</div>
+      <div style={{ position: "relative", color: COLORS.cream, fontWeight: 800, fontSize: 18, margin: "8px 0 4px" }}>Arma tu primera quiniela</div>
+      <div style={{ position: "relative", color: COLORS.creamDim, fontSize: 12.5, marginBottom: 20 }}>En menos de un minuto tienes el pleito armado con tu banda.</div>
+      <div style={{ position: "relative", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10, marginBottom: 20, textAlign: "left" }}>
+        {steps.map(([e, t, d], i) => (
+          <div key={t} style={{ borderRadius: 16, padding: 14, background: "#ffffff06", border: "1px solid rgba(255,255,255,.07)" }}>
+            <div style={{ width: 34, height: 34, borderRadius: 11, background: grad(i), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, marginBottom: 8 }}>{e}</div>
+            <div style={{ color: COLORS.cream, fontWeight: 800, fontSize: 13 }}>{i + 1}. {t}</div>
+            <div style={{ color: COLORS.creamDim, fontSize: 11, marginTop: 3 }}>{d}</div>
+          </div>
+        ))}
       </div>
       <button onClick={onCreate} style={{
-        background: COLORS.gold, border: "none", borderRadius: 999, padding: "10px 20px",
-        color: COLORS.bg, fontWeight: 800, fontSize: 12.5, cursor: "pointer",
-        display: "flex", alignItems: "center", gap: 6,
-      }}><Plus size={14} strokeWidth={3} /> Crear mi primera quiniela</button>
+        position: "relative", border: "none", borderRadius: 999, padding: "12px 24px", cursor: "pointer", font: "inherit",
+        background: "linear-gradient(90deg,#2BE87A,#22D3EE)", color: "#0A0D0B", fontWeight: 800, fontSize: 13.5,
+        display: "inline-flex", alignItems: "center", gap: 6, boxShadow: "0 10px 26px rgba(43,232,122,.3)",
+      }}><Plus size={15} strokeWidth={3} /> Crear mi primera quiniela</button>
     </div>
   );
 }
@@ -821,7 +893,7 @@ function EmptyQuinielasState({ onCreate }) {
 // ============================================================================
 // Tablero v2 — más color y movimiento: hero con cuenta regresiva, cinta de
 // partidos que corre sola, estadísticas animadas, partidos destacados con
-// escudos de color y quinielas con barra de avance.
+// playeras de color neutras y quinielas con barra de avance.
 // ============================================================================
 
 const VIBE = {
@@ -861,19 +933,17 @@ function VibeStyles() {
   );
 }
 
-// Escudo genérico: círculo con las iniciales del equipo y un color propio.
+// Marcador visual neutro del equipo: una playera genérica sobre un círculo de
+// color. No usa escudos, iniciales ni colores oficiales de ningún club.
 function TeamBadge({ name, size = 30 }) {
   const h = hashStr(name) % 360;
-  const words = String(name).replace(/\b(FC|CF|AC|AS|SSC|UNAM|UANL|Club|de|CD|SV|VfB|AFC)\b/g, "").trim().split(/\s+/).filter(Boolean);
-  const ini = (words.length > 1 ? words[0][0] + words[1][0] : (words[0] || name).slice(0, 2)).toUpperCase();
   return (
-    <div style={{
+    <div title={name} style={{
       width: size, height: size, borderRadius: "50%", flexShrink: 0,
-      background: `linear-gradient(145deg, hsl(${h} 75% 55%), hsl(${(h + 40) % 360} 70% 38%))`,
-      color: "#fff", fontWeight: 800, fontSize: size * 0.36, letterSpacing: -0.3,
+      background: `linear-gradient(145deg, hsl(${h} 45% 32%), hsl(${(h + 40) % 360} 40% 20%))`,
       display: "flex", alignItems: "center", justifyContent: "center",
-      boxShadow: `0 0 0 2px rgba(255,255,255,.08), 0 4px 12px hsl(${h} 70% 30% / .45)`,
-    }}>{ini}</div>
+      boxShadow: "0 0 0 1.5px rgba(255,255,255,.1)",
+    }}><Shirt size={Math.round(size * 0.5)} color="rgba(255,255,255,.85)" strokeWidth={2} /></div>
   );
 }
 
@@ -1076,10 +1146,8 @@ function QuinielaCard({ q, onOpen, i = 0 }) {
           <span style={{ color: COLORS.creamDim, fontSize: 10.5, whiteSpace: "nowrap" }}>{made}/{total} pronósticos</span>
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10 }}>
-          <div style={{ display: "flex" }}>
-            {q.games.slice(0, 4).map((g, k) => (
-              <div key={k} style={{ marginLeft: k ? -8 : 0 }}><TeamBadge name={g.home} size={22} /></div>
-            ))}
+          <div style={{ color: COLORS.creamDim, fontSize: 11, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginRight: 10 }}>
+            ⚽ {q.games[0] ? `${q.games[0].home} vs ${q.games[0].away}` : "Sin partidos"}{q.games.length > 1 ? ` +${q.games.length - 1}` : ""}
           </div>
           {q.leader && q.leader !== "—"
             ? <span style={{ color: VIBE.amber, fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}><Crown size={12} /> {q.leader} al frente</span>
@@ -1244,31 +1312,31 @@ function HomeScreen({ quinielas = QUINIELAS, onOpenQuiniela, onCreate, fromFaceb
 // Pestaña "Quinielas": todas las quinielas del usuario con filtros por estado,
 // búsqueda, crear nueva y unirse con código/link de invitación.
 function QuinielasScreen({ quinielas, onOpenQuiniela, onCreate, onJoin, wide = false, initialCode = "" }) {
-  const { openHistory } = React.useContext(AppCtx);
+  const { openHistory, dbMode } = React.useContext(AppCtx);
   const [filter, setFilter] = useState("all"); // all | live | soon | done
   const [query, setQuery] = useState("");
   const [showJoin, setShowJoin] = useState(!!initialCode);
   const [code, setCode] = useState(initialCode);
   const [joinMsg, setJoinMsg] = useState("");
-
-  const live = quinielas.filter(q => q.status === "En vivo");
-  const soon = quinielas.filter(q => q.status === "Por comenzar");
-  const base = filter === "live" ? live : filter === "soon" ? soon : quinielas;
-  // (las terminadas viven en su propio filtro)
-  const list = base.filter(q => q.name.toLowerCase().includes(query.trim().toLowerCase()));
-  const { dbMode } = React.useContext(AppCtx);
-  const finished = quinielas.filter(q => q.status === "Terminada");
-  const pastList = dbMode ? [] : PAST_QUINIELAS; // historial de ejemplo solo en modo de pruebas
-  const past = pastList.filter(q => q.name.toLowerCase().includes(query.trim().toLowerCase()));
-  const finishedFiltered = finished.filter(q => q.name.toLowerCase().includes(query.trim().toLowerCase()));
-
   const [joining, setJoining] = useState(false);
+
+  const q = query.trim().toLowerCase();
+  const live = quinielas.filter(x => x.status === "En vivo");
+  const soon = quinielas.filter(x => x.status === "Por comenzar");
+  const finished = quinielas.filter(x => x.status === "Terminada");
+  const base = filter === "live" ? live : filter === "soon" ? soon : quinielas;
+  const list = base.filter(x => x.name.toLowerCase().includes(q));
+  const pastList = dbMode ? [] : PAST_QUINIELAS; // historial de ejemplo solo en modo de pruebas
+  const past = pastList.filter(x => x.name.toLowerCase().includes(q));
+  const finishedFiltered = finished.filter(x => x.name.toLowerCase().includes(q));
+  const leading = quinielas.filter(x => x.you === 1).length;
+
   const handleJoin = async () => {
     const raw = code.trim();
     if (!raw) return;
     const clean = (raw.split(/[=/]/).pop() || raw).replace(/[^a-zA-Z0-9-]/g, "").toUpperCase();
     if (!clean) { setJoinMsg("Ese código no es válido."); return; }
-    const existing = quinielas.find(q => String(q.id).toUpperCase() === clean || q.code === clean);
+    const existing = quinielas.find(x => String(x.id).toUpperCase() === clean || x.code === clean);
     if (existing) { setJoinMsg(""); setShowJoin(false); setCode(""); onOpenQuiniela(existing); return; }
     if (joining) return;
     const games = GLOBAL_SORTEO.partidos.slice(0, 3).map((m, i) => ({
@@ -1285,42 +1353,51 @@ function QuinielasScreen({ quinielas, onOpenQuiniela, onCreate, onJoin, wide = f
   };
 
   const chips = [
-    ["all", `Todas (${quinielas.length})`], ["live", `En vivo (${live.length})`],
-    ["soon", `Por comenzar (${soon.length})`], ["done", `Terminadas (${finished.length + pastList.length})`],
+    ["all", "Todas", quinielas.length, 0], ["live", "En vivo", live.length, 4],
+    ["soon", "Por comenzar", soon.length, 3], ["done", "Terminadas", finished.length + pastList.length, 2],
   ];
 
   return (
-    <div style={{ padding: wide ? 0 : "20px 16px 16px", overflowY: wide ? "visible" : "auto", flex: 1 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 12, marginBottom: 18, flexWrap: "wrap" }}>
-        <div>
-          <div style={{ color: COLORS.creamDim, fontSize: 12, letterSpacing: 1.5, textTransform: "uppercase" }}>Quinielas</div>
-          <div style={{ color: COLORS.cream, fontSize: wide ? 30 : 24, fontWeight: 800, marginTop: 2, letterSpacing: -0.5 }}>Mis quinielas</div>
-        </div>
-        <div style={{ display: "flex", gap: 8 }}>
+    <div style={{ padding: wide ? 0 : "18px 14px 16px", overflowY: wide ? "visible" : "auto", flex: 1 }}>
+      <VibeStyles />
+      <PageHero
+        wide={wide}
+        kicker="🎟️ Mis quinielas"
+        title={quinielas.length ? "Tu pleito semanal, en un solo lugar" : "Arma el pleito con tu banda"}
+        subtitle="Crea quinielas privadas de hasta 15 amigos, pronostica marcadores y sigue la tabla en tiempo real."
+        gradient="linear-gradient(120deg, #0f7a45 0%, #1AA3A3 45%, #3B82F6 100%)"
+        emoji="🎟️"
+      >
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+          <HeroStat label="Quinielas" value={quinielas.length} />
+          <HeroStat label="En vivo" value={live.length} />
+          <HeroStat label="Vas ganando" value={leading} />
+          <div style={{ flex: 1 }} />
           <button onClick={() => { setShowJoin(!showJoin); setJoinMsg(""); }} style={{
-            display: "flex", alignItems: "center", gap: 6, background: COLORS.bgCard, color: COLORS.cream,
-            border: `1px solid ${COLORS.line}`, borderRadius: 999, padding: "8px 14px", fontWeight: 700, fontSize: 12, cursor: "pointer",
-          }}><Ticket size={14} /> Unirme con código</button>
+            display: "flex", alignItems: "center", gap: 6, background: "rgba(0,0,0,.28)", color: "#fff", font: "inherit",
+            border: "1px solid rgba(255,255,255,.25)", borderRadius: 12, padding: "11px 16px", fontWeight: 800, fontSize: 12.5, cursor: "pointer",
+          }}><Ticket size={15} /> Unirme con código</button>
           <button onClick={onCreate} style={{
-            display: "flex", alignItems: "center", gap: 4, background: COLORS.gold, color: COLORS.bg,
-            border: "none", borderRadius: 999, padding: "8px 14px", fontWeight: 800, fontSize: 12, cursor: "pointer",
-          }}><Plus size={14} strokeWidth={3} /> Crear quiniela</button>
+            display: "flex", alignItems: "center", gap: 6, background: "#fff", color: "#0A0D0B", font: "inherit",
+            border: "none", borderRadius: 12, padding: "11px 16px", fontWeight: 800, fontSize: 12.5, cursor: "pointer", boxShadow: "0 8px 20px rgba(0,0,0,.25)",
+          }}><Plus size={15} strokeWidth={3} /> Crear quiniela</button>
         </div>
-      </div>
+      </PageHero>
 
       {showJoin && (
-        <div style={{ background: COLORS.bgCard, border: `1px solid ${COLORS.gold}55`, borderRadius: 14, padding: 14, marginBottom: 16 }}>
-          <div style={{ color: COLORS.cream, fontWeight: 700, fontSize: 13, marginBottom: 4 }}>Unirme a una quiniela</div>
-          <div style={{ color: COLORS.creamDim, fontSize: 11.5, marginBottom: 10 }}>Pega el link de invitación o escribe el código que te pasaron.</div>
+        <div className="qv-rise" style={{ borderRadius: 18, padding: 16, marginBottom: 16, background: "linear-gradient(160deg,#10222a,#111512)", border: "1px solid rgba(34,211,238,.35)" }}>
+          <div style={{ color: COLORS.cream, fontWeight: 800, fontSize: 14, marginBottom: 4 }}>🔑 Unirme a una quiniela</div>
+          <div style={{ color: COLORS.creamDim, fontSize: 12, marginBottom: 10 }}>Pega el link de invitación o escribe el código que te pasaron.</div>
           <div style={{ display: "flex", gap: 8 }}>
             <input autoFocus value={code} onChange={e => setCode(e.target.value)} onKeyDown={e => e.key === "Enter" && handleJoin()}
               placeholder="Ej. 4F7K2 o el link completo" style={{
-                flex: 1, minWidth: 0, background: COLORS.bg, border: `1px solid ${COLORS.line}`, borderRadius: 10,
-                padding: "10px 12px", color: COLORS.cream, fontSize: 13, outline: "none", boxSizing: "border-box",
+                flex: 1, minWidth: 0, background: COLORS.bg, border: `1px solid ${COLORS.line}`, borderRadius: 12,
+                padding: "11px 13px", color: COLORS.cream, fontSize: 13.5, outline: "none", fontFamily: "var(--font-mono), monospace", letterSpacing: 1,
               }} />
             <button onClick={handleJoin} disabled={!code.trim()} style={{
-              background: code.trim() ? COLORS.gold : COLORS.line, color: code.trim() ? COLORS.bg : COLORS.creamDim,
-              border: "none", borderRadius: 10, padding: "0 16px", fontWeight: 800, fontSize: 12.5, cursor: code.trim() ? "pointer" : "default",
+              border: "none", borderRadius: 12, padding: "0 20px", fontWeight: 800, fontSize: 13, font: "inherit",
+              background: code.trim() ? "linear-gradient(90deg,#22D3EE,#3B82F6)" : "#ffffff10", color: code.trim() ? "#0A0D0B" : COLORS.creamDim,
+              cursor: code.trim() ? "pointer" : "default",
             }}>{joining ? "..." : "Unirme"}</button>
           </div>
           {joinMsg && <div style={{ color: COLORS.live, fontSize: 11.5, marginTop: 8 }}>{joinMsg}</div>}
@@ -1329,41 +1406,46 @@ function QuinielasScreen({ quinielas, onOpenQuiniela, onCreate, onJoin, wide = f
 
       <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", flex: 1 }}>
-          {chips.map(([id, label]) => (
-            <button key={id} onClick={() => setFilter(id)} style={{
-              padding: "7px 12px", borderRadius: 999, cursor: "pointer", fontSize: 11.5, fontWeight: 700,
-              border: `1px solid ${filter === id ? COLORS.gold : COLORS.line}`,
-              background: filter === id ? COLORS.goldSoft : "transparent",
-              color: filter === id ? COLORS.gold : COLORS.creamDim,
-            }}>{label}</button>
-          ))}
+          {chips.map(([id, label, n, c]) => {
+            const on = filter === id;
+            return (
+              <button key={id} onClick={() => setFilter(id)} style={{
+                display: "flex", alignItems: "center", gap: 7, padding: "8px 14px", borderRadius: 999, cursor: "pointer", font: "inherit",
+                fontSize: 12, fontWeight: 800, border: on ? "none" : `1px solid ${COLORS.line}`,
+                background: on ? grad(c, 90) : "#ffffff06", color: on ? "#0A0D0B" : COLORS.creamDim,
+                boxShadow: on ? "0 6px 16px rgba(0,0,0,.3)" : "none",
+              }}>
+                {id === "live" && n > 0 && <span className="qv-live-dot" style={{ background: on ? "#0A0D0B" : "#FF3B3B" }} />}
+                {label}
+                <span style={{ minWidth: 20, padding: "1px 6px", borderRadius: 999, fontSize: 10.5, background: on ? "rgba(0,0,0,.18)" : "#ffffff12", textAlign: "center" }}>{n}</span>
+              </button>
+            );
+          })}
         </div>
-        <div style={{ position: "relative", width: wide ? 240 : "100%" }}>
-          <Search size={14} color={COLORS.creamDim} style={{ position: "absolute", left: 11, top: 11 }} />
+        <div style={{ position: "relative", width: wide ? 260 : "100%" }}>
+          <Search size={15} color={COLORS.creamDim} style={{ position: "absolute", left: 12, top: 11 }} />
           <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar quiniela" style={{
-            width: "100%", background: COLORS.bgCard, border: `1px solid ${COLORS.line}`, borderRadius: 10,
-            padding: "9px 12px 9px 32px", color: COLORS.cream, fontSize: 12.5, outline: "none", boxSizing: "border-box",
+            width: "100%", background: "#ffffff06", border: `1px solid ${COLORS.line}`, borderRadius: 12,
+            padding: "10px 12px 10px 34px", color: COLORS.cream, fontSize: 12.5, outline: "none", boxSizing: "border-box",
           }} />
         </div>
       </div>
 
       {filter === "done" ? (
         past.length === 0 && finishedFiltered.length === 0 ? (
-          <div style={{ color: COLORS.creamDim, fontSize: 12.5, textAlign: "center", padding: 30 }}>No hay quinielas terminadas con ese nombre.</div>
+          <div style={{ color: COLORS.creamDim, fontSize: 12.5, textAlign: "center", padding: 30 }}>No hay quinielas terminadas todavía.</div>
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: wide ? "repeat(auto-fill, minmax(320px, 1fr))" : "1fr", gap: wide ? 12 : 0 }}>
-            {finishedFiltered.map(q => <QuinielaCard key={q.id} q={q} onOpen={onOpenQuiniela} />)}
-            {past.map(q => (
-              <button key={q.id} onClick={openHistory} style={{
-                width: "100%", textAlign: "left", background: COLORS.bgCard, border: `1px solid ${COLORS.line}`,
-                borderRadius: 14, padding: 14, marginBottom: 10, cursor: "pointer", display: "flex", alignItems: "center", gap: 12,
+            {finishedFiltered.map(x => <QuinielaCard key={x.id} q={x} onOpen={onOpenQuiniela} />)}
+            {past.map((x, i) => (
+              <button key={x.id} onClick={openHistory} className="qv-card" style={{
+                width: "100%", textAlign: "left", cursor: "pointer", font: "inherit", marginBottom: 10, borderRadius: 18, padding: 14,
+                display: "flex", alignItems: "center", gap: 12, background: "linear-gradient(160deg, #171d19, #111512)", border: "1px solid rgba(255,255,255,.07)",
               }}>
-                <div style={{ fontSize: 22 }}>{q.emoji}</div>
+                <div style={{ width: 42, height: 42, borderRadius: 13, background: grad(i + 2), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 21 }}>{x.emoji}</div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ color: COLORS.cream, fontWeight: 700, fontSize: 14 }}>{q.name}</div>
-                  <div style={{ color: COLORS.creamDim, fontSize: 11, marginTop: 2 }}>
-                    Ganó {q.winner.avatar} {q.winner.name} con {q.winner.pts} pts · {q.members} jugadores
-                  </div>
+                  <div style={{ color: COLORS.cream, fontWeight: 800, fontSize: 14 }}>{x.name}</div>
+                  <div style={{ color: VIBE.amber, fontSize: 11.5, marginTop: 2 }}>👑 Ganó {x.winner.avatar} {x.winner.name} con {x.winner.pts} pts</div>
                 </div>
                 <ChevronRight size={18} color={COLORS.creamDim} />
               </button>
@@ -1376,7 +1458,7 @@ function QuinielasScreen({ quinielas, onOpenQuiniela, onCreate, onJoin, wide = f
         )
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: wide ? "repeat(auto-fill, minmax(320px, 1fr))" : "1fr", gap: wide ? 12 : 0 }}>
-          {list.map(q => <QuinielaCard key={q.id} q={q} onOpen={onOpenQuiniela} />)}
+          {list.map((x, i) => <QuinielaCard key={x.id} q={x} i={i} onOpen={onOpenQuiniela} />)}
         </div>
       )}
     </div>
@@ -4002,7 +4084,7 @@ export default function MiQuinielaApp() {
                 </div>
               )}
               {tab === "ranking" && (
-                <div style={{ maxWidth: 880, margin: "0 auto", position: "relative", minHeight: "calc(100vh - 72px)" }}>
+                <div style={{ maxWidth: 1240, margin: "0 auto", position: "relative", minHeight: "calc(100vh - 72px)" }}>
                   <RankingScreen onJoinGlobal={() => setJoinedGlobal(true)} joinedGlobal={joinedGlobal} />
                 </div>
               )}
