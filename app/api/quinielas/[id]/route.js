@@ -1,6 +1,7 @@
 import { sql } from "../../../../lib/db";
 import { requireMe, ok, fail } from "../../../../lib/me";
 import { listQuinielasFor, isMember, UUID_RE } from "../../../../lib/quinielas";
+import { syncScores, hasKey } from "../../../../lib/football";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,9 @@ export async function GET(_req, { params }) {
   try {
     const role = await isMember(id, me.id);
     if (!role) return fail("No eres miembro de esta quiniela.", 403);
+    // Marcador en vivo: si pasaron más de 50 s desde la última sincronización
+    // con API-Football, la hacemos ahora (el cron también la corre cada 2 min).
+    if (hasKey()) await syncScores().catch(() => {});
 
     const [quiniela] = await listQuinielasFor(me.id, id);
     const standings = await sql(

@@ -1483,7 +1483,23 @@ function QuinielaDetail({ q, onBack, onChanged }) {
 }
 
 function CreateQuinielaModal({ onClose, onCreated, plan, onOpenPlan }) {
+  const { dbMode } = React.useContext(AppCtx);
   const [step, setStep] = useState(1); // 1 datos, 2 ligas, 3 partidos, 4 confirmar
+  // Partidos reales (API-Football vía /api/fixtures). Si no hay clave o falla,
+  // se usan los partidos de ejemplo de LEAGUES.
+  const [realLeagues, setRealLeagues] = useState(null);
+  const [fxState, setFxState] = useState(dbMode ? "loading" : "demo"); // loading | real | demo
+  useEffect(() => {
+    if (!dbMode) return;
+    let alive = true;
+    api("/api/fixtures").then(r => {
+      if (!alive) return;
+      if (r.ok) { setRealLeagues(r.leagues.filter(l => l.fixtures.length > 0)); setFxState("real"); }
+      else setFxState("demo");
+    });
+    return () => { alive = false; };
+  }, [dbMode]);
+  const leagueList = fxState === "real" && realLeagues ? realLeagues : LEAGUES;
   const [name, setName] = useState("");
   const [period, setPeriod] = useState("semana");
   const [chosenLeagues, setChosenLeagues] = useState([]);
@@ -1587,8 +1603,11 @@ function CreateQuinielaModal({ onClose, onCreated, plan, onOpenPlan }) {
             <div style={{ color: COLORS.creamDim, fontSize: 12, marginBottom: 14 }}>
               Conectado a las ligas más importantes — elige de cuáles salen los partidos ({chosenLeagues.length}/{limits.maxLeagues}).
             </div>
+            {fxState === "loading" && <div style={{ color: COLORS.creamDim, fontSize: 12, marginBottom: 10 }}>Cargando partidos reales...</div>}
+            {fxState === "real" && <div style={{ color: COLORS.gold, fontSize: 11, fontWeight: 700, marginBottom: 10 }}>● Partidos reales de los próximos días · hora del centro de México</div>}
+            {fxState === "demo" && dbMode && <div style={{ color: COLORS.creamDim, fontSize: 11, marginBottom: 10 }}>No pudimos cargar el calendario real; mostrando partidos de ejemplo.</div>}
             <div style={{ overflowY: "auto", flex: 1, marginBottom: 12 }}>
-              {LEAGUES.map(l => {
+              {fxState !== "loading" && leagueList.map(l => {
                 const isSel = !!chosenLeagues.find(x => x.id === l.id);
                 const locked = l.premium && plan === "free";
                 const atCap = !isSel && chosenLeagues.length >= limits.maxLeagues;
@@ -1651,7 +1670,7 @@ function CreateQuinielaModal({ onClose, onCreated, plan, onOpenPlan }) {
             <div style={{ overflowY: "auto", flex: 1, marginBottom: 12 }}>
               {activeLeague.fixtures.map(fx => {
                 const isSel = !!selected.find(g => g.id === fx.id);
-                const finished = fx.status === "final";
+                const finished = fx.status === "final" || fx.status === "live";
                 const atCap = !isSel && selected.length >= limits.maxGames;
                 return (
                   <button key={fx.id} disabled={finished || atCap} onClick={() => toggleGame(fx, activeLeague.id, activeLeague.name)} style={{
@@ -1672,6 +1691,7 @@ function CreateQuinielaModal({ onClose, onCreated, plan, onOpenPlan }) {
                       <div style={{ color: COLORS.creamDim, fontSize: 10.5, marginTop: 2 }}>
                         {finished ? `Resultado final: ${fx.hs}-${fx.as}` : fx.date}
                         {!finished && fx.fav && ` · favorito ${fx.fav} (${fx.favPct}%)`}
+                        {fx.status === "live" && <span style={{ color: COLORS.live, fontWeight: 800 }}> · ● EN VIVO</span>}
                       </div>
                     </div>
                   </button>
@@ -1721,6 +1741,7 @@ function CreateQuinielaModal({ onClose, onCreated, plan, onOpenPlan }) {
                 id: fx.id, home: fx.home, away: fx.away,
                 hs: fx.status === "final" ? fx.hs : null, as: fx.status === "final" ? fx.as : null,
                 min: fx.date, live: false, league: fx.leagueName,
+                apiId: fx.apiId || null, kickoffAt: fx.kickoffAt || null,
               })),
             })} style={{
               width: "100%", background: COLORS.gold, border: "none", borderRadius: 12, padding: "13px 0",
@@ -3417,8 +3438,8 @@ export default function MiQuinielaApp() {
       body: {
         name: draft.name, emoji: draft.emoji, max: draft.max, period: draft.period,
         games: draft.games.map(g => ({
-          home: g.home, away: g.away, league: g.league, label: g.min,
-          status: g.hs !== null && g.hs !== undefined ? "finished" : "scheduled", hs: g.hs, as: g.as,
+          home: g.home, away: g.away, league: g.league, label: g.min, apiId: g.apiId || null, kickoffAt: g.kickoffAt || null,
+          status: g.hs !== null && g.hs !== undefined && !g.apiId ? "finished" : "scheduled", hs: g.hs, as: g.as,
         })),
       },
     });

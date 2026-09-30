@@ -1,6 +1,7 @@
 import { sql } from "../../../../lib/db";
 import { ok, fail, readJson } from "../../../../lib/me";
 import { requireAdmin } from "../../../../lib/admin";
+import { ensureSchema } from "../../../../lib/football";
 
 export const dynamic = "force-dynamic";
 
@@ -30,15 +31,21 @@ export async function POST(req) {
   if (!id) return fail("Pon el número de sorteo.");
   if (matches.length < 1) return fail("Agrega al menos un partido.");
   try {
+    await ensureSchema();
     const exists = await sql("select 1 from global_draws where id = $1", [id]);
     if (exists.length) return fail(`El sorteo #${id} ya existe.`, 409);
-    const closes = b.closes_at && !isNaN(Date.parse(b.closes_at)) ? new Date(b.closes_at).toISOString() : null;
+    // Si no pones fecha de cierre, cierra al arrancar el primer partido.
+    const kicks = matches.map(m => m.kickoffAt).filter(k => k && !isNaN(Date.parse(k))).map(k => new Date(k).getTime());
+    const closes = b.closes_at && !isNaN(Date.parse(b.closes_at)) ? new Date(b.closes_at).toISOString()
+      : kicks.length ? new Date(Math.min(...kicks)).toISOString() : null;
     await sql("insert into global_draws (id, closes_at, close_label, status) values ($1, $2, $3, 'open')",
       [id, closes, String(b.close_label || "").slice(0, 60) || null]);
     for (let i = 0; i < matches.length; i++) {
       const m = matches[i];
-      await sql("insert into global_draw_matches (draw_id, n, home_team, away_team, league) values ($1, $2, $3, $4, $5)",
-        [id, i + 1, String(m.home).slice(0, 60), String(m.away).slice(0, 60), String(m.league || "").slice(0, 60) || null]);
+      await sql(`insert into global_draw_matches (draw_id, n, home_team, away_team, league, api_fixture_id, kickoff_at)
+                 values ($1, $2, $3, $4, $5, $6, $7)`,
+        [id, i + 1, String(m.home).slice(0, 60), String(m.away).slice(0, 60), String(m.league || "").slice(0, 60) || null,
+         parseInt(m.apiId, 10) || null, m.kickoffAt && !isNaN(Date.parse(m.kickoffAt)) ? new Date(m.kickoffAt).toISOString() : null]);
     }
     if (b.closeOthers) await sql("update global_draws set status = 'closed' where id <> $1 and status = 'open'", [id]);
     return ok();

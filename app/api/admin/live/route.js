@@ -1,6 +1,7 @@
 import { sql } from "../../../../lib/db";
 import { ok } from "../../../../lib/me";
 import { requireAdmin } from "../../../../lib/admin";
+import { hasKey, afGet, lastSync, quota } from "../../../../lib/football";
 
 export const dynamic = "force-dynamic";
 
@@ -95,7 +96,28 @@ export async function GET() {
     ) x
   `, [], [{ n: 0 }]);
 
+  // API-Football: plan, consultas usadas hoy y última sincronización.
+  let football = { configured: hasKey() };
+  if (hasKey()) {
+    try {
+      const st = await afGet("status", {}, 60);
+      const r = st.response || {};
+      football = {
+        configured: true, ok: true,
+        plan: r.subscription ? r.subscription.plan : null,
+        planEnd: r.subscription ? r.subscription.end : null,
+        active: r.subscription ? r.subscription.active : null,
+        used: r.requests ? r.requests.current : quota.limit != null ? quota.limit - quota.remaining : null,
+        limit: r.requests ? r.requests.limit_day : quota.limit,
+      };
+    } catch (e) {
+      football = { configured: true, ok: false, error: String(e.message || e) };
+    }
+    football.lastSync = await lastSync();
+  }
+
   return ok({
+    football,
     now: new Date().toISOString(),
     health: { dbOk, dbError, dbLatency, env },
     kpis: { ...k, active15: active ? active.n : 0 },

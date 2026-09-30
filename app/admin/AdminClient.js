@@ -127,6 +127,56 @@ const EVENT_META = {
   reporte: ["🚩", "reportó", C.red],
 };
 
+function FootballCard({ f, tick }) {
+  const [syncing, setSyncing] = useState(false);
+  const [res, setRes] = useState(null);
+  if (!f) return null;
+  const pct = f.limit ? Math.min(100, Math.round(((f.used || 0) / f.limit) * 100)) : 0;
+  const ls = f.lastSync;
+  const color = !f.configured ? C.amber : f.ok === false ? C.red : C.green;
+  const forceSync = async () => {
+    setSyncing(true);
+    const r = await api("/api/admin/sync", { method: "POST" });
+    setSyncing(false);
+    setRes(r.ok ? r.result : { error: r.error });
+  };
+  return (
+    <div style={{ background: C.card, border: `1px solid ${color}55`, borderRadius: 14, padding: "14px 16px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16, alignItems: "center" }}>
+      <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+        <span style={{ fontSize: 22 }}>⚽</span>
+        <div>
+          <div style={{ color: C.cream, fontWeight: 700, fontSize: 14 }}>
+            API-Football {!f.configured ? "· sin clave" : f.ok === false ? "· con error" : "· conectada"}
+          </div>
+          <div style={{ color: f.ok === false ? C.red : C.dim, fontSize: 11.5 }}>
+            {!f.configured ? "Agrega API_FOOTBALL_KEY en Vercel" : f.ok === false ? f.error : `Plan ${f.plan || "—"}${f.planEnd ? ` · vence ${fmtDate(f.planEnd)}` : ""}`}
+          </div>
+        </div>
+      </div>
+      {f.configured && f.ok !== false && (
+        <div>
+          <div style={{ display: "flex", justifyContent: "space-between", color: C.dim, fontSize: 11, marginBottom: 5 }}>
+            <span>Consultas hoy</span><span style={{ fontFamily: MONO, color: C.cream }}>{f.used ?? "—"} / {f.limit ?? "—"}</span>
+          </div>
+          <div style={{ height: 7, background: C.line, borderRadius: 4, overflow: "hidden" }}>
+            <div style={{ width: `${pct}%`, height: "100%", background: pct > 85 ? C.red : pct > 60 ? C.amber : C.green }} />
+          </div>
+        </div>
+      )}
+      {f.configured && (
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+          <div style={{ color: C.dim, fontSize: 11.5, lineHeight: 1.5 }}>
+            Marcadores sincronizados: <b style={{ color: C.cream }}>{ls ? ago(ls.at, tick) : "nunca"}</b>
+            {ls && <div>{ls.checked || 0} partidos revisados · {ls.updated || 0} actualizados{ls.error ? ` · error: ${ls.error}` : ""}</div>}
+            {res && <div style={{ color: res.error ? C.red : C.green }}>{res.error || (res.skipped ? `Omitido: ${res.skipped}` : `Listo: ${res.updated} actualizados`)}</div>}
+          </div>
+          <Btn small kind="ghost" onClick={forceSync} disabled={syncing}>{syncing ? "..." : "Sincronizar ya"}</Btn>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function LiveTab() {
   const [d, setD] = useState(null);
   const [err, setErr] = useState("");
@@ -183,6 +233,9 @@ function LiveTab() {
           </div>
         </div>
       </div>
+
+      {/* API-Football */}
+      <FootballCard f={d.football} tick={tick} />
 
       {/* KPIs */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12 }}>
@@ -377,7 +430,19 @@ function DrawsTab() {
     setMsg({ ok: r.ok, text: r.ok ? `Sorteo #${nd.id} creado y abierto.` : r.error });
     if (r.ok) { setNd({ id: String(parseInt(nd.id, 10) + 1), close_label: "", closes_at: "", closeOthers: true, matches: Array.from({ length: 10 }, () => ({ home: "", away: "", league: "" })) }); load(); }
   };
-  const setM = (i, k) => (e) => setNd(x => ({ ...x, matches: x.matches.map((m, j) => j === i ? { ...m, [k]: e.target.value } : m) }));
+  const setM = (i, k) => (e) => setNd(x => ({ ...x, matches: x.matches.map((m, j) => j === i ? { ...m, [k]: e.target.value, ...(k !== "league" ? { apiId: null, kickoffAt: null } : {}) } : m) }));
+  const [filling, setFilling] = useState(false);
+  const autofill = async () => {
+    setFilling(true);
+    const r = await api("/api/admin/fixtures-suggest");
+    setFilling(false);
+    if (!r.ok) return setMsg({ ok: false, text: r.error });
+    const ms = r.matches.map(m => ({ home: m.home, away: m.away, league: m.league, apiId: m.apiId, kickoffAt: m.kickoffAt, date: m.date }));
+    while (ms.length < 10) ms.push({ home: "", away: "", league: "" });
+    const first = r.matches[0];
+    setNd(x => ({ ...x, matches: ms, close_label: x.close_label || (first ? first.date : "") }));
+    setMsg({ ok: true, text: `Se cargaron ${r.matches.length} partidos reales (2 por cada una de las 5 grandes ligas). El sorteo cierra solo al arrancar el primero.` });
+  };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -418,7 +483,7 @@ function DrawsTab() {
         </Card>
       ))}
 
-      <Card title="Crear nuevo sorteo">
+      <Card title="Crear nuevo sorteo" right={<Btn small kind="ghost" onClick={autofill} disabled={filling}>{filling ? "Buscando..." : "⚽ Llenar con partidos reales"}</Btn>}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
           <Field label="Número de sorteo"><input value={nd.id} onChange={e => setNd({ ...nd, id: e.target.value })} style={inputStyle} /></Field>
           <Field label="Cierra (fecha y hora)"><input type="datetime-local" value={nd.closes_at} onChange={e => setNd({ ...nd, closes_at: e.target.value })} style={{ ...inputStyle, colorScheme: "dark" }} /></Field>
@@ -426,8 +491,8 @@ function DrawsTab() {
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(420px, 1fr))", gap: 8, marginTop: 14 }}>
           {nd.matches.map((m, i) => (
-            <div key={i} style={{ display: "grid", gridTemplateColumns: "20px 1fr 1fr 110px", gap: 6, alignItems: "center" }}>
-              <span style={{ color: C.dim, fontFamily: MONO, fontSize: 12 }}>{i + 1}</span>
+            <div key={i} style={{ display: "grid", gridTemplateColumns: "20px 1fr 1fr 110px", gap: 6, alignItems: "center" }} title={m.date ? `${m.date}${m.apiId ? " · enlazado a API-Football" : ""}` : ""}>
+              <span style={{ color: m.apiId ? C.green : C.dim, fontFamily: MONO, fontSize: 12 }}>{i + 1}</span>
               <input value={m.home} onChange={setM(i, "home")} placeholder="Local" style={inputStyle} />
               <input value={m.away} onChange={setM(i, "away")} placeholder="Visitante" style={inputStyle} />
               <input value={m.league} onChange={setM(i, "league")} placeholder="Liga" style={inputStyle} />

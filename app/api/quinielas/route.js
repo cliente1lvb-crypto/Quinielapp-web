@@ -1,6 +1,7 @@
 import { sql } from "../../../lib/db";
 import { requireMe, ok, fail, readJson } from "../../../lib/me";
 import { listQuinielasFor, newCode } from "../../../lib/quinielas";
+import { ensureSchema } from "../../../lib/football";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +30,7 @@ export async function POST(req) {
   if (!games.length) return fail("Elige al menos un partido.");
 
   try {
+    await ensureSchema();
     let q = null;
     for (let i = 0; i < 5 && !q; i++) {
       const rows = await sql(
@@ -54,11 +56,12 @@ export async function POST(req) {
       const kickoff = g.kickoffAt && !isNaN(Date.parse(g.kickoffAt)) ? new Date(g.kickoffAt).toISOString() : null;
       await sql(
         `insert into quiniela_games
-           (quiniela_id, home_team, away_team, league, kickoff_label, kickoff_at, home_score, away_score, status, sort_order)
-         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+           (quiniela_id, home_team, away_team, league, kickoff_label, kickoff_at, home_score, away_score, status, sort_order, api_fixture_id)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
         [q.id, String(g.home || "Local").slice(0, 60), String(g.away || "Visitante").slice(0, 60),
          String(g.league || "").slice(0, 60), String(g.label || "").slice(0, 40), kickoff,
-         status === "scheduled" ? null : hs, status === "scheduled" ? null : as, status, i]
+         status === "scheduled" ? null : hs, status === "scheduled" ? null : as, status, i,
+         Number.isInteger(g.apiId) ? g.apiId : (parseInt(g.apiId, 10) || null)]
       );
     }
     const [shaped] = await listQuinielasFor(me.id, q.id);
