@@ -1321,7 +1321,7 @@ function QuinielaDetail({ q, onBack, onChanged }) {
           }}>
             <Trophy size={15} color={COLORS.gold} style={{ flexShrink: 0 }} />
             <span style={{ color: COLORS.creamDim, fontSize: 11, lineHeight: 1.5 }}>
-              <b style={{ color: COLORS.cream }}>3 pts</b> marcador exacto · <b style={{ color: COLORS.cream }}>1 pt</b> acertar ganador o empate · <b style={{ color: COLORS.cream }}>0 pts</b> fallar
+              <b style={{ color: COLORS.cream }}>5 pts</b> marcador exacto · <b style={{ color: COLORS.cream }}>3 pts</b> acertar ganador o empate · <b style={{ color: COLORS.cream }}>0 pts</b> fallar
             </span>
           </div>
           <div style={{ color: COLORS.creamDim, fontSize: 11, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Tabla en tiempo real</div>

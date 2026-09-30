@@ -63,7 +63,7 @@ create table if not exists predictions (
 create index if not exists idx_predictions_user on predictions(user_id);
 
 -- ---------- Tabla de posiciones (se calcula sola) ----------
--- Reglas de la app: 3 pts marcador exacto · 1 pt acertar ganador o empate · 0 fallar.
+-- Reglas de la app: 5 pts marcador exacto · 3 pts acertar ganador o empate · 0 fallar.
 -- Cuenta partidos en vivo (tabla en tiempo real) y terminados.
 create or replace view quiniela_standings as
 select
@@ -75,8 +75,8 @@ select
     case
       when g.id is null or p.user_id is null or g.home_score is null or g.away_score is null
            or g.status = 'scheduled' then 0
-      when p.home_pred = g.home_score and p.away_pred = g.away_score then 3
-      when sign(p.home_pred - p.away_pred) = sign(g.home_score - g.away_score) then 1
+      when p.home_pred = g.home_score and p.away_pred = g.away_score then 5
+      when sign(p.home_pred - p.away_pred) = sign(g.home_score - g.away_score) then 3
       else 0
     end
   ), 0)::int as points,
