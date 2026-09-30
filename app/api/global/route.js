@@ -35,7 +35,7 @@ export async function GET() {
     );
     const myIdx = ranking.findIndex(r => r.user_id === me.id);
     return ok({
-      draw: { id: draw.id, closeLabel: draw.close_label, status: draw.status },
+      draw: { id: draw.id, closeLabel: draw.close_label, status: draw.status, closesAt: draw.closes_at },
       matches: matches.map(m => ({ n: m.n, home: m.home_team, away: m.away_team, league: m.league, result: m.result })),
       myTicket: mine[0] ? mine[0].picks : null,
       ranking: ranking.slice(0, 20).map((r, i) => ({

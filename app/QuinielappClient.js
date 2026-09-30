@@ -818,169 +818,424 @@ function EmptyQuinielasState({ onCreate }) {
   );
 }
 
-function QuinielaCard({ q, onOpen }) {
+// ============================================================================
+// Tablero v2 — más color y movimiento: hero con cuenta regresiva, cinta de
+// partidos que corre sola, estadísticas animadas, partidos destacados con
+// escudos de color y quinielas con barra de avance.
+// ============================================================================
+
+const VIBE = {
+  green: "#2BE87A", teal: "#1AA3A3", cyan: "#22D3EE", purple: "#8B5CF6",
+  pink: "#FF3D81", amber: "#FFB020", red: "#FF3B3B", blue: "#3B82F6",
+};
+const CARD_GRADIENTS = [
+  ["#2BE87A", "#1AA3A3"], ["#8B5CF6", "#FF3D81"], ["#FFB020", "#FF3D81"],
+  ["#22D3EE", "#3B82F6"], ["#FF3D81", "#8B5CF6"], ["#2BE87A", "#22D3EE"],
+];
+const grad = (i, deg = 135) => {
+  const [a, b] = CARD_GRADIENTS[((i % CARD_GRADIENTS.length) + CARD_GRADIENTS.length) % CARD_GRADIENTS.length];
+  return `linear-gradient(${deg}deg, ${a}, ${b})`;
+};
+function hashStr(s) {
+  let h = 0;
+  for (let i = 0; i < String(s).length; i++) h = (h * 31 + String(s).charCodeAt(i)) >>> 0;
+  return h;
+}
+
+// Estilos animados compartidos (se inyectan una vez por pantalla).
+function VibeStyles() {
   return (
-    <button onClick={() => onOpen(q)} style={{
-      width: "100%", textAlign: "left", background: COLORS.bgCard, border: `1px solid ${COLORS.line}`,
-      borderRadius: 14, padding: 14, marginBottom: 10, cursor: "pointer", boxSizing: "border-box",
+    <style>{`
+      @keyframes qv-marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+      @keyframes qv-pulse { 0% { box-shadow: 0 0 0 0 rgba(255,59,59,.7); } 100% { box-shadow: 0 0 0 8px rgba(255,59,59,0); } }
+      @keyframes qv-shine { 0% { background-position: 0% 50%; } 100% { background-position: 200% 50%; } }
+      @keyframes qv-float { 0%,100% { transform: translateY(0) rotate(-8deg); } 50% { transform: translateY(-10px) rotate(4deg); } }
+      @keyframes qv-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+      .qv-rise { animation: qv-rise .5s ease-out both; }
+      .qv-card { transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease; }
+      .qv-card:hover { transform: translateY(-3px); box-shadow: 0 14px 34px rgba(0,0,0,.45); }
+      .qv-live-dot { width: 7px; height: 7px; border-radius: 50%; background: #FF3B3B; display: inline-block; animation: qv-pulse 1.2s ease-out infinite; }
+      .qv-scroll::-webkit-scrollbar { height: 6px; } .qv-scroll::-webkit-scrollbar-thumb { background: #2A302B; border-radius: 3px; }
+      @media (prefers-reduced-motion: reduce) { .qv-marquee-track, .qv-float, .qv-live-dot { animation: none !important; } }
+    `}</style>
+  );
+}
+
+// Escudo genérico: círculo con las iniciales del equipo y un color propio.
+function TeamBadge({ name, size = 30 }) {
+  const h = hashStr(name) % 360;
+  const words = String(name).replace(/\b(FC|CF|AC|AS|SSC|UNAM|UANL|Club|de|CD|SV|VfB|AFC)\b/g, "").trim().split(/\s+/).filter(Boolean);
+  const ini = (words.length > 1 ? words[0][0] + words[1][0] : (words[0] || name).slice(0, 2)).toUpperCase();
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: "50%", flexShrink: 0,
+      background: `linear-gradient(145deg, hsl(${h} 75% 55%), hsl(${(h + 40) % 360} 70% 38%))`,
+      color: "#fff", fontWeight: 800, fontSize: size * 0.36, letterSpacing: -0.3,
+      display: "flex", alignItems: "center", justifyContent: "center",
+      boxShadow: `0 0 0 2px rgba(255,255,255,.08), 0 4px 12px hsl(${h} 70% 30% / .45)`,
+    }}>{ini}</div>
+  );
+}
+
+// Número que "sube" hasta su valor al aparecer.
+function CountUp({ value, duration = 900 }) {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    const target = Number(value) || 0;
+    let raf, start;
+    const step = (t) => {
+      if (!start) start = t;
+      const p = Math.min(1, (t - start) / duration);
+      setN(Math.round(target * (1 - Math.pow(1 - p, 3))));
+      if (p < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [value, duration]);
+  return <>{n.toLocaleString("es-MX")}</>;
+}
+
+// Cuenta regresiva que se actualiza cada segundo (solo en el navegador).
+function useCountdown(targetIso) {
+  const [now, setNow] = useState(null);
+  useEffect(() => {
+    setNow(Date.now());
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  if (!now || !targetIso) return null;
+  const ms = Math.max(0, new Date(targetIso).getTime() - now);
+  return { d: Math.floor(ms / 864e5), h: Math.floor(ms / 36e5) % 24, m: Math.floor(ms / 6e4) % 60, s: Math.floor(ms / 1e3) % 60, done: ms === 0 };
+}
+function Countdown({ to }) {
+  const c = useCountdown(to);
+  const cells = c ? [[c.d, "días"], [c.h, "hrs"], [c.m, "min"], [c.s, "seg"]] : [["–", "días"], ["–", "hrs"], ["–", "min"], ["–", "seg"]];
+  return (
+    <div style={{ display: "flex", gap: 8 }}>
+      {cells.map(([v, l]) => (
+        <div key={l} style={{
+          minWidth: 52, padding: "8px 6px", borderRadius: 12, textAlign: "center",
+          background: "rgba(0,0,0,.28)", border: "1px solid rgba(255,255,255,.14)", backdropFilter: "blur(6px)",
+        }}>
+          <div style={{ color: "#fff", fontWeight: 800, fontSize: 22, fontFamily: "var(--font-mono), monospace", lineHeight: 1 }}>
+            {typeof v === "number" ? String(v).padStart(2, "0") : v}
+          </div>
+          <div style={{ color: "rgba(255,255,255,.75)", fontSize: 9.5, textTransform: "uppercase", letterSpacing: 1, marginTop: 4 }}>{l}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Próximo viernes 6:00 PM (cierre de muestra del sorteo).
+function nextFridayEvening() {
+  const d = new Date(); d.setDate(d.getDate() + ((((5 - d.getDay()) + 7) % 7) || 7)); d.setHours(18, 0, 0, 0);
+  return d.toISOString();
+}
+
+// Cinta de partidos que corre sola de derecha a izquierda.
+function LiveTicker({ items }) {
+  if (!items.length) return null;
+  const row = [...items, ...items];
+  return (
+    <div style={{
+      position: "relative", overflow: "hidden", borderRadius: 14, marginBottom: 18,
+      background: "linear-gradient(90deg, #111612, #151b17)", border: `1px solid ${COLORS.line}`,
     }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-          <div style={{ fontSize: 22 }}>{q.emoji}</div>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ color: COLORS.cream, fontWeight: 700, fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{q.name}</div>
-            <div style={{ color: COLORS.creamDim, fontSize: 11, marginTop: 2 }}>
-              {q.members}/{q.max} amigos · {q.games.length} partidos · {new Set(q.games.map(g => g.league)).size} ligas
-            </div>
+      <div style={{
+        position: "absolute", left: 0, top: 0, bottom: 0, zIndex: 2, display: "flex", alignItems: "center", gap: 7,
+        padding: "0 14px", background: "linear-gradient(90deg, #FF3B3B, #FF3D81)", color: "#fff",
+        fontWeight: 800, fontSize: 10.5, letterSpacing: 1, textTransform: "uppercase", boxShadow: "8px 0 18px rgba(0,0,0,.5)",
+      }}>
+        <span className="qv-live-dot" style={{ background: "#fff" }} /> Marcador
+      </div>
+      <div className="qv-marquee-track" style={{ display: "flex", width: "max-content", animation: `qv-marquee ${Math.max(28, items.length * 6)}s linear infinite`, paddingLeft: 120 }}>
+        {row.map((g, i) => (
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 9, padding: "10px 18px", borderRight: `1px solid ${COLORS.line}`, whiteSpace: "nowrap" }}>
+            <span style={{ color: COLORS.creamDim, fontSize: 9.5, textTransform: "uppercase", letterSpacing: 0.6 }}>{g.league}</span>
+            <TeamBadge name={g.home} size={20} />
+            <span style={{ color: COLORS.cream, fontSize: 12, fontWeight: 700 }}>{g.home}</span>
+            <span style={{
+              fontFamily: "var(--font-mono), monospace", fontWeight: 800, fontSize: 12.5, padding: "2px 8px", borderRadius: 6,
+              background: g.live ? "#FF3B3B22" : "#ffffff0d", color: g.live ? "#FF6B6B" : COLORS.cream,
+            }}>{g.hs != null ? `${g.hs} - ${g.as}` : "vs"}</span>
+            <span style={{ color: COLORS.cream, fontSize: 12, fontWeight: 700 }}>{g.away}</span>
+            <TeamBadge name={g.away} size={20} />
+            <span style={{ color: g.live ? "#FF6B6B" : VIBE.cyan, fontSize: 10.5, fontWeight: 700 }}>{g.live ? `● ${g.min}` : g.min}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Tarjeta de estadística con gradiente y número animado.
+function StatTile({ icon, label, value, suffix, sub, i, onClick }) {
+  return (
+    <button onClick={onClick} className="qv-card qv-rise" style={{
+      animationDelay: `${i * 70}ms`, textAlign: "left", cursor: onClick ? "pointer" : "default", font: "inherit",
+      position: "relative", overflow: "hidden", borderRadius: 18, padding: "16px 16px 14px", border: "1px solid rgba(255,255,255,.06)",
+      background: `linear-gradient(160deg, #171d19, #111512)`,
+    }}>
+      <div style={{ position: "absolute", top: -30, right: -30, width: 110, height: 110, borderRadius: "50%", background: grad(i), opacity: 0.22, filter: "blur(6px)" }} />
+      <div style={{
+        width: 34, height: 34, borderRadius: 11, background: grad(i), display: "flex", alignItems: "center", justifyContent: "center",
+        fontSize: 17, marginBottom: 12, boxShadow: "0 6px 16px rgba(0,0,0,.35)",
+      }}>{icon}</div>
+      <div style={{ color: COLORS.creamDim, fontSize: 10.5, textTransform: "uppercase", letterSpacing: 1 }}>{label}</div>
+      <div style={{ color: COLORS.cream, fontSize: 28, fontWeight: 800, fontFamily: "var(--font-mono), monospace", lineHeight: 1.15, marginTop: 2 }}>
+        {typeof value === "number" ? <CountUp value={value} /> : value}{suffix && <span style={{ fontSize: 14, color: COLORS.creamDim, marginLeft: 3 }}>{suffix}</span>}
+      </div>
+      {sub && <div style={{ color: COLORS.creamDim, fontSize: 11, marginTop: 3 }}>{sub}</div>}
+    </button>
+  );
+}
+
+// Tarjeta de partido destacado (carrusel).
+function MatchCard({ m, i, onPick }) {
+  return (
+    <div className="qv-card" style={{
+      minWidth: 230, flex: "0 0 230px", borderRadius: 18, padding: 14, position: "relative", overflow: "hidden",
+      background: "linear-gradient(170deg, #1a211c, #121613)", border: "1px solid rgba(255,255,255,.07)",
+    }}>
+      <div style={{ position: "absolute", inset: 0, background: grad(i, 120), opacity: 0.08 }} />
+      <div style={{ position: "relative", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase", padding: "3px 8px", borderRadius: 999, background: grad(i), color: "#0A0D0B" }}>{m.league}</span>
+        {m.live
+          ? <span style={{ color: "#FF6B6B", fontSize: 10.5, fontWeight: 800, display: "flex", alignItems: "center", gap: 5 }}><span className="qv-live-dot" /> {m.min}</span>
+          : <span style={{ color: COLORS.creamDim, fontSize: 10.5 }}>{m.date || m.min}</span>}
+      </div>
+      <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6, minWidth: 0 }}>
+          <TeamBadge name={m.home} size={40} />
+          <span style={{ color: COLORS.cream, fontSize: 11.5, fontWeight: 700, textAlign: "center", lineHeight: 1.2 }}>{m.home}</span>
+        </div>
+        <div style={{ color: m.live ? "#FF6B6B" : COLORS.creamDim, fontFamily: "var(--font-mono), monospace", fontWeight: 800, fontSize: m.hs != null ? 20 : 13 }}>
+          {m.hs != null ? `${m.hs}-${m.as}` : "VS"}
+        </div>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6, minWidth: 0 }}>
+          <TeamBadge name={m.away} size={40} />
+          <span style={{ color: COLORS.cream, fontSize: 11.5, fontWeight: 700, textAlign: "center", lineHeight: 1.2 }}>{m.away}</span>
+        </div>
+      </div>
+      {m.favPct && (
+        <div style={{ position: "relative", marginTop: 12 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9.5, color: COLORS.creamDim, marginBottom: 4 }}>
+            <span>Favorito {m.fav}</span><span style={{ fontFamily: "var(--font-mono), monospace" }}>{m.favPct}%</span>
+          </div>
+          <div style={{ height: 5, borderRadius: 3, background: "#ffffff12", overflow: "hidden" }}>
+            <div style={{ width: `${m.favPct}%`, height: "100%", background: grad(i, 90) }} />
           </div>
         </div>
-        <ChevronRight size={18} color={COLORS.creamDim} />
-      </div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10 }}>
-        <span style={{
-          fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5,
-          color: q.status === "En vivo" ? COLORS.live : COLORS.teal,
-          background: q.status === "En vivo" ? `${COLORS.live}22` : `${COLORS.teal}33`,
-          padding: "3px 8px", borderRadius: 999,
-        }}>
-          {q.status === "En vivo" && "● "}{q.status}
-        </span>
-        {q.leader && q.leader !== "—" && (
-          <span style={{ color: COLORS.creamDim, fontSize: 11, display: "flex", alignItems: "center", gap: 4 }}>
-            <Crown size={12} color={COLORS.gold} /> {q.leader} al frente
-          </span>
-        )}
+      )}
+      <button onClick={onPick} style={{
+        position: "relative", width: "100%", marginTop: 12, border: "none", borderRadius: 10, padding: "8px 0",
+        background: "#ffffff10", color: COLORS.cream, fontWeight: 700, fontSize: 11.5, cursor: "pointer",
+      }}>Armar quiniela con este partido →</button>
+    </div>
+  );
+}
+
+// Tarjeta de quiniela con color propio, avance de pronósticos y estado en vivo.
+function QuinielaCard({ q, onOpen, i = 0 }) {
+  const idx = i || hashStr(q.id) % CARD_GRADIENTS.length;
+  const total = q.games.length || 1;
+  const made = q.myPredictions != null ? q.myPredictions : Math.min(total, q.you ? total : 0);
+  const pct = Math.round((made / total) * 100);
+  const live = q.status === "En vivo";
+  return (
+    <button onClick={() => onOpen(q)} className="qv-card" style={{
+      width: "100%", textAlign: "left", cursor: "pointer", boxSizing: "border-box", marginBottom: 10, font: "inherit",
+      position: "relative", overflow: "hidden", borderRadius: 18, padding: 0, border: "1px solid rgba(255,255,255,.07)",
+      background: "linear-gradient(160deg, #171d19, #111512)",
+    }}>
+      <div style={{ height: 4, background: grad(idx, 90) }} />
+      <div style={{ padding: 14 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{
+            width: 42, height: 42, borderRadius: 13, background: grad(idx), display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 21, flexShrink: 0, boxShadow: "0 6px 16px rgba(0,0,0,.35)",
+          }}>{q.emoji}</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ color: COLORS.cream, fontWeight: 800, fontSize: 14.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{q.name}</div>
+            <div style={{ color: COLORS.creamDim, fontSize: 11, marginTop: 2 }}>
+              {q.members}/{q.max} amigos · {q.games.length} partidos{q.code ? ` · ${q.code}` : ""}
+            </div>
+          </div>
+          <span style={{
+            fontSize: 9.5, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6, padding: "4px 9px", borderRadius: 999,
+            color: live ? "#fff" : q.status === "Terminada" ? COLORS.creamDim : "#0A0D0B",
+            background: live ? "linear-gradient(90deg,#FF3B3B,#FF3D81)" : q.status === "Terminada" ? "#ffffff12" : grad(idx, 90),
+            display: "flex", alignItems: "center", gap: 5,
+          }}>{live && <span className="qv-live-dot" style={{ background: "#fff" }} />}{q.status}</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12 }}>
+          <div style={{ flex: 1, height: 6, borderRadius: 3, background: "#ffffff10", overflow: "hidden" }}>
+            <div style={{ width: `${pct}%`, height: "100%", background: grad(idx, 90), transition: "width .6s" }} />
+          </div>
+          <span style={{ color: COLORS.creamDim, fontSize: 10.5, whiteSpace: "nowrap" }}>{made}/{total} pronósticos</span>
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10 }}>
+          <div style={{ display: "flex" }}>
+            {q.games.slice(0, 4).map((g, k) => (
+              <div key={k} style={{ marginLeft: k ? -8 : 0 }}><TeamBadge name={g.home} size={22} /></div>
+            ))}
+          </div>
+          {q.leader && q.leader !== "—"
+            ? <span style={{ color: VIBE.amber, fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}><Crown size={12} /> {q.leader} al frente</span>
+            : <span style={{ color: COLORS.creamDim, fontSize: 11 }}>Toca para pronosticar →</span>}
+        </div>
       </div>
     </button>
   );
 }
 
-function HomeScreen({ quinielas = QUINIELAS, onOpenQuiniela, onCreate, fromFacebook, plan, onOpenPlan, onOpenNotifications, unreadCount }) {
-  const { userName, go, openFriends, globalData } = React.useContext(AppCtx);
-  const cierre = globalData && globalData.draw ? globalData.draw.closeLabel : GLOBAL_SORTEO.cierra;
-  const rankLabel = globalData ? (globalData.me ? `Vas en el lugar #${globalData.me.rank}` : "Aún no mandas tu boleto") : `Vas en el lugar #${YOU_GLOBAL.rank}`;
+// Partidos destacados: los de tus quinielas + el calendario del fin de semana.
+function featuredMatches(quinielas) {
+  const mine = [];
+  quinielas.forEach(q => q.games.forEach(g => { if (g.status !== "finished" && mine.length < 6) mine.push({ ...g }); }));
+  const sample = sampleLeagues().flatMap(l => l.fixtures.slice(0, 2).map(f => ({ ...f, league: l.name })));
+  const seen = new Set();
+  return [...mine, ...sample].filter(m => {
+    const k = `${m.home}|${m.away}`; if (seen.has(k)) return false; seen.add(k); return true;
+  }).slice(0, 12);
+}
+
+function HomeScreen({ quinielas = QUINIELAS, onOpenQuiniela, onCreate, fromFacebook, plan, onOpenPlan, onOpenNotifications, unreadCount, wide = false }) {
+  const { userName, go, openFriends, globalData, me } = React.useContext(AppCtx);
   const winning = quinielas.filter(q => q.you === 1).length;
-  const clickable = { cursor: "pointer", textAlign: "left", font: "inherit" };
+  const live = quinielas.filter(q => q.status === "En vivo").length;
+  const matches = React.useMemo(() => featuredMatches(quinielas), [quinielas]);
+  const tickerItems = matches.slice(0, 10);
+  const closesAt = (globalData && globalData.draw && globalData.draw.closesAt) || nextFridayEvening();
+  const drawNo = globalData && globalData.draw ? globalData.draw.id : GLOBAL_SORTEO.numero;
+  const rank = globalData ? (globalData.me ? globalData.me.rank : null) : YOU_GLOBAL.rank;
+  const hour = new Date().getHours();
+  const hello = hour < 12 ? "Buenos días" : hour < 19 ? "Buenas tardes" : "Buenas noches";
+
   return (
-    <div style={{ padding: "20px 16px 16px", overflowY: "auto", flex: 1 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
-        <div>
-          <div style={{ color: COLORS.creamDim, fontSize: 12, letterSpacing: 1.5, textTransform: "uppercase" }}>Qué tal, {userName}</div>
-          <div style={{ color: COLORS.cream, fontSize: 30, fontWeight: 800, marginTop: 2, letterSpacing: -0.5 }}>Tu tablero</div>
+    <div style={{ padding: wide ? 0 : "18px 14px 16px", overflowY: wide ? "visible" : "auto", flex: 1 }}>
+      <VibeStyles />
+
+      {/* Encabezado */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{
+            width: 44, height: 44, borderRadius: "50%", background: grad(1), padding: 2,
+          }}>
+            <div style={{ width: "100%", height: "100%", borderRadius: "50%", background: COLORS.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 21 }}>
+              {(me && me.avatar) || "🦁"}
+            </div>
+          </div>
+          <div>
+            <div style={{ color: COLORS.creamDim, fontSize: 12 }}>{hello},</div>
+            <div style={{ color: COLORS.cream, fontSize: wide ? 24 : 20, fontWeight: 800, letterSpacing: -0.4 }}>{userName} 👋</div>
+          </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <button onClick={onOpenNotifications} style={{
-            position: "relative", background: COLORS.bgCard, border: `1px solid ${COLORS.line}`,
-            borderRadius: 999, width: 34, height: 34, display: "flex", alignItems: "center",
-            justifyContent: "center", cursor: "pointer",
+            position: "relative", background: "#ffffff0d", border: `1px solid ${COLORS.line}`,
+            borderRadius: 12, width: 38, height: 38, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
           }}>
-            <Bell size={15} color={COLORS.creamDim} />
+            <Bell size={16} color={COLORS.cream} />
             {unreadCount > 0 && (
               <span style={{
-                position: "absolute", top: -3, right: -3, background: COLORS.live, color: "#fff",
-                fontSize: 9, fontWeight: 800, borderRadius: 999, minWidth: 15, height: 15,
-                display: "flex", alignItems: "center", justifyContent: "center", padding: "0 3px",
+                position: "absolute", top: -5, right: -5, background: "linear-gradient(90deg,#FF3B3B,#FF3D81)", color: "#fff",
+                fontSize: 9.5, fontWeight: 800, borderRadius: 999, minWidth: 17, height: 17,
+                display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px",
               }}>{unreadCount}</span>
             )}
           </button>
-          <button onClick={onOpenPlan} style={{ background: "none", border: "none", cursor: "pointer" }}>
-            <PlanBadge plan={plan} />
-          </button>
+          <button onClick={onOpenPlan} style={{
+            border: "none", borderRadius: 12, padding: "0 14px", height: 38, cursor: "pointer", fontWeight: 800, fontSize: 12,
+            background: plan === "premium" ? "linear-gradient(90deg,#FFB020,#FF3D81)" : "linear-gradient(90deg,#8B5CF6,#FF3D81)", color: "#fff",
+            display: "flex", alignItems: "center", gap: 6, boxShadow: "0 6px 18px rgba(139,92,246,.35)",
+          }}><Crown size={14} /> {plan === "premium" ? "Premium" : "Hazte Premium"}</button>
         </div>
       </div>
 
+      <LiveTicker items={tickerItems} />
+
       {fromFacebook && (
         <div onClick={openFriends} style={{
-          cursor: "pointer",
-          display: "flex", alignItems: "center", gap: 10, background: "#1877F218",
-          border: "1px solid #1877F255", borderRadius: 12, padding: "10px 12px", marginBottom: 14,
+          cursor: "pointer", display: "flex", alignItems: "center", gap: 10, background: "linear-gradient(90deg,#1877F233,#1877F211)",
+          border: "1px solid #1877F255", borderRadius: 14, padding: "11px 13px", marginBottom: 14,
         }}>
           <Users size={16} color="#4A9EFF" />
-          <span style={{ color: COLORS.cream, fontSize: 11.5, flex: 1 }}>3 amigos de Facebook ya están en Quinielapp</span>
+          <span style={{ color: COLORS.cream, fontSize: 12, flex: 1 }}>3 amigos de Facebook ya están en Quinielapp</span>
           <ChevronRight size={15} color={COLORS.creamDim} />
         </div>
       )}
 
-      {/* Bento grid: agrupa el estado del usuario en tarjetas de distinto tamaño
-          en vez de una sola tira de banners apilados — patrón que ya adoptaron
-          los widgets de iOS y Fluent UI para escanear info relacionada más rápido. */}
-      <div style={{
-        display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 22,
+      {/* Hero: Quiniela Global con cuenta regresiva */}
+      <div className="qv-rise" style={{
+        position: "relative", overflow: "hidden", borderRadius: 22, padding: wide ? "26px 28px" : "20px 18px", marginBottom: 18,
+        background: "linear-gradient(120deg, #0f7a45 0%, #1AA3A3 38%, #6D3FE0 72%, #C0297A 100%)",
+        backgroundSize: "200% 200%", animation: "qv-shine 12s linear infinite alternate",
+        boxShadow: "0 20px 50px rgba(26,163,163,.25)",
       }}>
-        <div onClick={() => go("quinielas")} style={{
-          ...clickable,
-          gridColumn: "span 3", gridRow: "span 2",
-          background: `linear-gradient(135deg, ${COLORS.bgCardAlt}, ${COLORS.bgCard})`,
-          border: `1px solid ${COLORS.line}`, borderRadius: 18, padding: 18,
-          display: "flex", flexDirection: "column", justifyContent: "space-between",
-        }}>
-          <Trophy size={24} color={COLORS.gold} strokeWidth={1.6} />
-          <div>
-            <div style={{ color: COLORS.creamDim, fontSize: 10.5, textTransform: "uppercase", letterSpacing: 1 }}>Vas ganando en</div>
-            <div style={{ color: COLORS.gold, fontWeight: 800, fontSize: 20, marginTop: 2, letterSpacing: -0.3 }}>{winning} {winning === 1 ? "quiniela" : "quinielas"}</div>
-            <div style={{ color: COLORS.creamDim, fontSize: 10.5 }}>esta semana</div>
+        <div style={{ position: "absolute", inset: 0, background: "radial-gradient(circle at 85% 20%, rgba(255,255,255,.22), transparent 45%)" }} />
+        <div className="qv-float" style={{ position: "absolute", right: wide ? 36 : 14, ...(wide ? { top: 22 } : { bottom: 16 }), fontSize: wide ? 88 : 44, animation: "qv-float 5s ease-in-out infinite", filter: "drop-shadow(0 12px 20px rgba(0,0,0,.35))" }}>⚽</div>
+        <div style={{ position: "relative", maxWidth: wide ? "70%" : "78%" }}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(0,0,0,.25)", borderRadius: 999, padding: "4px 10px", color: "#fff", fontSize: 10.5, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase" }}>
+            <BarChart3 size={12} /> Quiniela Global · Sorteo #{drawNo}
+          </div>
+          <div style={{ color: "#fff", fontSize: wide ? 30 : 22, fontWeight: 800, letterSpacing: -0.6, lineHeight: 1.1, margin: "12px 0 6px" }}>
+            10 partidos. Las 5 grandes ligas.<br />Un solo campeón.
+          </div>
+          <div style={{ color: "rgba(255,255,255,.85)", fontSize: 12.5, marginBottom: 14 }}>
+            {rank ? `Vas en el lugar #${rank} del ranking global.` : "Todavía no mandas tu boleto: el sorteo cierra en"}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+            <Countdown to={closesAt} />
+            <button onClick={() => go("ranking")} style={{
+              border: "none", borderRadius: 12, padding: "12px 18px", background: "#fff", color: "#0A0D0B",
+              fontWeight: 800, fontSize: 13, cursor: "pointer", boxShadow: "0 8px 20px rgba(0,0,0,.25)",
+            }}>{rank ? "Ver mi boleto" : "Jugar gratis →"}</button>
           </div>
         </div>
+      </div>
 
-        <div onClick={() => go("quinielas")} style={{
-          ...clickable,
-          gridColumn: "span 1", gridRow: "span 2",
-          background: COLORS.bgCard, border: `1px solid ${COLORS.line}`, borderRadius: 18,
-          padding: "14px 10px", display: "flex", flexDirection: "column",
-          justifyContent: "space-between", alignItems: "center", textAlign: "center",
-        }}>
-          <span style={{ fontSize: 18 }}>🏆</span>
-          <div>
-            <div style={{ color: COLORS.cream, fontWeight: 800, fontSize: 22, fontFamily: "var(--font-mono), 'Courier New', monospace" }}>{quinielas.length}</div>
-            <div style={{ color: COLORS.creamDim, fontSize: 8.5, textTransform: "uppercase", letterSpacing: 0.3 }}>activas</div>
-          </div>
-        </div>
+      {/* Estadísticas */}
+      <div style={{ display: "grid", gridTemplateColumns: wide ? "repeat(4, 1fr)" : "repeat(2, 1fr)", gap: 10, marginBottom: 20 }}>
+        <StatTile i={0} icon="🏆" label="Quinielas" value={quinielas.length} sub={live ? `${live} en vivo ahora` : "activas"} onClick={() => go("quinielas")} />
+        <StatTile i={1} icon="👑" label="Vas ganando" value={winning} sub={winning === 1 ? "quiniela" : "quinielas"} onClick={() => go("quinielas")} />
+        <StatTile i={2} icon="🌎" label="Ranking global" value={rank ? `#${rank}` : "—"} sub={rank ? "en el sorteo actual" : "manda tu boleto"} onClick={() => go("ranking")} />
+        <StatTile i={3} icon="🎯" label="Puntos por acierto" value={5} suffix="pts" sub="marcador exacto · 3 por resultado" />
+      </div>
 
-        <div onClick={() => go("ranking")} style={{
-          ...clickable,
-          gridColumn: "span 2",
-          background: COLORS.bgCard, border: `1px solid ${COLORS.line}`, borderRadius: 18,
-          padding: "12px 14px",
-        }}>
-          <div style={{ color: COLORS.creamDim, fontSize: 9.5, textTransform: "uppercase", letterSpacing: 0.8 }}>Sorteo Global</div>
-          <div style={{ color: COLORS.cream, fontSize: 11.5, fontWeight: 700, marginTop: 3 }}>Cierra {cierre}</div>
-        </div>
-
-        <div onClick={() => go("ranking")} style={{
-          ...clickable,
-          gridColumn: "span 2",
-          background: COLORS.bgCard, border: `1px solid ${COLORS.line}`, borderRadius: 18,
-          padding: "12px 14px",
-        }}>
-          <div style={{ color: COLORS.creamDim, fontSize: 9.5, textTransform: "uppercase", letterSpacing: 0.8 }}>Ranking global</div>
-          <div style={{ color: COLORS.cream, fontSize: 11.5, fontWeight: 700, marginTop: 3 }}>{rankLabel}</div>
-        </div>
+      {/* Partidos destacados */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+        <span style={{ color: COLORS.cream, fontWeight: 800, fontSize: 16 }}>🔥 Partidos del fin de semana</span>
+        <button onClick={onCreate} style={{ background: "none", border: "none", color: VIBE.cyan, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>Armar quiniela →</button>
+      </div>
+      <div className="qv-scroll" style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 8, marginBottom: 18 }}>
+        {matches.map((m, i) => <MatchCard key={i} m={m} i={i} onPick={onCreate} />)}
       </div>
 
       <AdBanner placement="home_banner" />
 
+      {/* Mis quinielas */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-        <span style={{ color: COLORS.cream, fontWeight: 700, fontSize: 15 }}>Tus quinielas</span>
+        <span style={{ color: COLORS.cream, fontWeight: 800, fontSize: 16 }}>Tus quinielas</span>
         <button onClick={onCreate} style={{
-          display: "flex", alignItems: "center", gap: 4, background: COLORS.gold, color: COLORS.bg,
-          border: "none", borderRadius: 999, padding: "7px 12px", fontWeight: 800, fontSize: 12, cursor: "pointer",
-        }}>
-          <Plus size={14} strokeWidth={3} /> Crear
-        </button>
+          display: "flex", alignItems: "center", gap: 5, background: "linear-gradient(90deg,#2BE87A,#22D3EE)", color: "#0A0D0B",
+          border: "none", borderRadius: 999, padding: "8px 14px", fontWeight: 800, fontSize: 12, cursor: "pointer",
+          boxShadow: "0 6px 18px rgba(43,232,122,.3)",
+        }}><Plus size={14} strokeWidth={3} /> Crear quiniela</button>
       </div>
-
       {quinielas.length === 0 ? (
         <EmptyQuinielasState onCreate={onCreate} />
       ) : (
-        <>
-          {quinielas.slice(0, 3).map(q => <QuinielaCard key={q.id} q={q} onOpen={onOpenQuiniela} />)}
-          {quinielas.length > 3 && (
-            <button onClick={() => go("quinielas")} style={{
-              width: "100%", background: "none", border: `1px dashed ${COLORS.line}`, borderRadius: 12,
-              padding: "10px 0", color: COLORS.gold, fontWeight: 700, fontSize: 12.5, cursor: "pointer",
-            }}>Ver todas mis quinielas ({quinielas.length}) →</button>
-          )}
-        </>
+        <div style={{ display: "grid", gridTemplateColumns: wide ? "repeat(auto-fill, minmax(300px, 1fr))" : "1fr", gap: wide ? 12 : 0 }}>
+          {quinielas.slice(0, wide ? 4 : 3).map((q, i) => <QuinielaCard key={q.id} q={q} i={i} onOpen={onOpenQuiniela} />)}
+        </div>
+      )}
+      {quinielas.length > (wide ? 4 : 3) && (
+        <button onClick={() => go("quinielas")} style={{
+          width: "100%", marginTop: 6, background: "none", border: `1px dashed ${COLORS.line}`, borderRadius: 12,
+          padding: "10px 0", color: VIBE.cyan, fontWeight: 700, fontSize: 12.5, cursor: "pointer",
+        }}>Ver todas mis quinielas ({quinielas.length}) →</button>
       )}
     </div>
   );
@@ -3315,112 +3570,145 @@ function useIsDesktop(breakpoint = 900) {
 }
 
 function SidebarNav({ tab, setTab }) {
+  const { userName, me, openAdvertise } = React.useContext(AppCtx);
   const items = [
-    { id: "home", icon: HomeIcon, label: "Inicio" },
-    { id: "quinielas", icon: Trophy, label: "Quinielas" },
-    { id: "ranking", icon: BarChart3, label: "Ranking" },
-    { id: "profile", icon: Users, label: "Perfil" },
+    { id: "home", icon: HomeIcon, label: "Inicio", c: 0 },
+    { id: "quinielas", icon: Trophy, label: "Quinielas", c: 2 },
+    { id: "ranking", icon: BarChart3, label: "Ranking", c: 1 },
+    { id: "profile", icon: Users, label: "Perfil", c: 3 },
   ];
   return (
     <div style={{
-      width: 232, flexShrink: 0, borderRight: `1px solid ${COLORS.line}`,
-      background: COLORS.bgCard, padding: "28px 14px", display: "flex",
-      flexDirection: "column", gap: 3, position: "sticky", top: 0, height: "100vh",
+      width: 236, flexShrink: 0, borderRight: `1px solid ${COLORS.line}`,
+      background: "linear-gradient(180deg, #121814 0%, #0c100d 100%)", padding: "24px 14px", display: "flex",
+      flexDirection: "column", gap: 4, position: "sticky", top: 0, height: "100vh", boxSizing: "border-box",
     }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "0 10px", marginBottom: 34 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "0 8px", marginBottom: 28 }}>
         <div style={{
-          width: 34, height: 34, borderRadius: 10, background: COLORS.goldSoft,
-          border: `1.5px solid ${COLORS.gold}`, display: "flex", alignItems: "center", justifyContent: "center",
+          width: 38, height: 38, borderRadius: 12, background: "linear-gradient(135deg,#2BE87A,#22D3EE)",
+          display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 6px 18px rgba(43,232,122,.35)",
         }}>
-          <TicketLogo size={18} />
+          <TicketLogo size={20} color="#0A0D0B" />
         </div>
-        <span style={{ color: COLORS.cream, fontWeight: 700, fontSize: 15, letterSpacing: -0.2 }}>Quinielapp</span>
+        <div>
+          <div style={{ color: COLORS.cream, fontWeight: 800, fontSize: 16, letterSpacing: -0.3 }}>Quinielapp</div>
+          <div style={{ color: COLORS.creamDim, fontSize: 10 }}>Arma la quiniela con tu banda</div>
+        </div>
       </div>
       {items.map(it => {
         const active = tab === it.id;
         const Icon = it.icon;
         return (
           <button key={it.id} onClick={() => setTab(it.id)} style={{
-            display: "flex", alignItems: "center", gap: 12, padding: "11px 14px", borderRadius: 10,
-            border: "none", cursor: "pointer", textAlign: "left",
-            background: active ? COLORS.goldSoft : "transparent",
-            color: active ? COLORS.gold : COLORS.creamDim, fontWeight: active ? 700 : 500, fontSize: 13.5,
+            position: "relative", display: "flex", alignItems: "center", gap: 12, padding: "11px 12px", borderRadius: 12,
+            border: "none", cursor: "pointer", textAlign: "left", font: "inherit",
+            background: active ? "rgba(255,255,255,.07)" : "transparent",
+            color: active ? COLORS.cream : COLORS.creamDim, fontWeight: active ? 800 : 500, fontSize: 13.5,
           }}>
-            <Icon size={17} strokeWidth={active ? 2.4 : 1.8} />
+            {active && <span style={{ position: "absolute", left: -14, top: 8, bottom: 8, width: 4, borderRadius: 4, background: grad(it.c, 180) }} />}
+            <span style={{
+              width: 30, height: 30, borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center",
+              background: active ? grad(it.c) : "#ffffff08",
+            }}><Icon size={16} color={active ? "#0A0D0B" : COLORS.creamDim} strokeWidth={active ? 2.6 : 1.8} /></span>
             {it.label}
           </button>
         );
       })}
-    </div>
-  );
-}
 
-// Barras simples en SVG/CSS — sin librería de gráficas, consistente con el resto
-// de la app (todo hecho a mano). Estadística exclusiva de la vista de escritorio.
-function AciertosChart() {
-  const data = [4, 7, 5, 8, 6, 9];
-  return (
-    <div style={{ display: "flex", alignItems: "flex-end", gap: 8, height: 90, marginTop: 14 }}>
-      {data.map((v, i) => (
-        <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-          <div style={{
-            width: "100%", height: `${(v / 10) * 70}px`, borderRadius: 4,
-            background: i === data.length - 1 ? COLORS.gold : COLORS.line,
-          }} />
-          <span style={{ fontSize: 9, color: COLORS.creamDim }}>S{i + 1}</span>
+      <div style={{ flex: 1 }} />
+
+      <div style={{
+        borderRadius: 16, padding: 14, marginBottom: 12, position: "relative", overflow: "hidden",
+        background: "linear-gradient(140deg, #6D3FE0, #C0297A)",
+      }}>
+        <div style={{ position: "absolute", right: -10, top: -12, fontSize: 54, opacity: 0.25 }}>👑</div>
+        <div style={{ color: "#fff", fontWeight: 800, fontSize: 13.5 }}>Quinielapp Premium</div>
+        <div style={{ color: "rgba(255,255,255,.85)", fontSize: 11, margin: "4px 0 10px", lineHeight: 1.45 }}>20 partidos y 10 ligas por quiniela por solo 1 USD al mes.</div>
+        <button onClick={() => setTab("profile")} style={{
+          width: "100%", border: "none", borderRadius: 10, padding: "8px 0", background: "#fff", color: "#6D3FE0", fontWeight: 800, fontSize: 12, cursor: "pointer",
+        }}>Mejorar plan</button>
+      </div>
+
+      <button onClick={() => setTab("profile")} style={{
+        display: "flex", alignItems: "center", gap: 10, padding: 10, borderRadius: 14, background: "#ffffff08",
+        border: `1px solid ${COLORS.line}`, cursor: "pointer", textAlign: "left", font: "inherit",
+      }}>
+        <div style={{ width: 34, height: 34, borderRadius: "50%", background: grad(1), padding: 2 }}>
+          <div style={{ width: "100%", height: "100%", borderRadius: "50%", background: COLORS.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>{(me && me.avatar) || "🦁"}</div>
         </div>
-      ))}
+        <div style={{ minWidth: 0 }}>
+          <div style={{ color: COLORS.cream, fontWeight: 700, fontSize: 12.5 }}>{userName}</div>
+          <div style={{ color: COLORS.creamDim, fontSize: 10.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{(me && me.email) || "Ver mi perfil"}</div>
+        </div>
+      </button>
     </div>
   );
 }
 
-// Panel exclusivo de escritorio: estadísticas y contexto que en el teléfono no
-// caben sin saturar la pantalla — aquí sí hay espacio de sobra para mostrarlas.
 function DesktopRightPanel({ notifications = NOTIFICATIONS }) {
-  const { go, openNotifications, globalData, dbMode } = React.useContext(AppCtx);
+  const { go, openNotifications, globalData } = React.useContext(AppCtx);
   const top = globalData ? globalData.ranking.slice(0, 5) : GLOBAL_RANKING.slice(0, 5);
+  const podium = [top[1], top[0], top[2]];
+  const heights = [74, 96, 60];
+  const medal = ["🥈", "🥇", "🥉"];
+  const colors = [["#C8D0DA", "#8A94A3"], ["#FFD34D", "#FFB020"], ["#E7A36B", "#B8703A"]];
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <VibeStyles />
+      <div style={{ borderRadius: 20, padding: 18, background: "linear-gradient(170deg, #1a1530, #121613)", border: "1px solid rgba(139,92,246,.25)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <span style={{ color: COLORS.cream, fontWeight: 800, fontSize: 14 }}>🏆 Top ranking global</span>
+          <button onClick={() => go("ranking")} style={{ background: "none", border: "none", color: VIBE.purple, fontSize: 11.5, fontWeight: 800, cursor: "pointer" }}>Ver todo →</button>
+        </div>
+        {top.length === 0 ? (
+          <div style={{ color: COLORS.creamDim, fontSize: 12, textAlign: "center", padding: "18px 0" }}>Aún nadie envía boleto. ¡Sé el primero en el podio!</div>
+        ) : (
+          <>
+            <div style={{ display: "flex", alignItems: "flex-end", gap: 8, marginBottom: 12 }}>
+              {podium.map((p, k) => p ? (
+                <div key={k} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                  <div style={{ fontSize: 22 }}>{p.avatar}</div>
+                  <div style={{ color: COLORS.cream, fontSize: 11, fontWeight: 700, textAlign: "center", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
+                  <div style={{
+                    width: "100%", height: heights[k], borderRadius: "12px 12px 4px 4px",
+                    background: `linear-gradient(180deg, ${colors[k][0]}, ${colors[k][1]})`,
+                    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-start", paddingTop: 8,
+                    boxShadow: `0 8px 20px ${colors[k][1]}44`,
+                  }}>
+                    <span style={{ fontSize: 18 }}>{medal[k]}</span>
+                    <span style={{ color: "#1a1a1a", fontWeight: 800, fontSize: 12, fontFamily: "var(--font-mono), monospace" }}>{p.aciertos}/10</span>
+                  </div>
+                </div>
+              ) : <div key={k} style={{ flex: 1 }} />)}
+            </div>
+            {top.slice(3).map(p => (
+              <div key={p.rank} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 4px", borderTop: `1px solid ${COLORS.line}` }}>
+                <span style={{ width: 18, color: COLORS.creamDim, fontWeight: 800, fontSize: 12, fontFamily: "var(--font-mono), monospace" }}>{p.rank}</span>
+                <span style={{ fontSize: 16 }}>{p.avatar}</span>
+                <span style={{ flex: 1, color: COLORS.cream, fontSize: 12, fontWeight: 600 }}>{p.name}</span>
+                <span style={{ color: VIBE.purple, fontSize: 11.5, fontWeight: 800, fontFamily: "var(--font-mono), monospace" }}>{p.aciertos}/10</span>
+              </div>
+            ))}
+          </>
+        )}
+      </div>
+
       <AdBanner placement="desktop_sidebar" />
 
-      {/* Gráfica de ejemplo: se oculta con datos reales hasta tener historial por semana. */}
-      {!dbMode && (
-      <div style={{ background: COLORS.bgCard, border: `1px solid ${COLORS.line}`, borderRadius: 16, padding: 18 }}>
-        <div style={{ color: COLORS.creamDim, fontSize: 11, textTransform: "uppercase", letterSpacing: 1 }}>Tu progreso</div>
-        <div style={{ color: COLORS.cream, fontWeight: 800, fontSize: 15, marginTop: 4 }}>Aciertos por semana</div>
-        <AciertosChart />
-      </div>
-      )}
-
-      <div style={{ background: COLORS.bgCard, border: `1px solid ${COLORS.line}`, borderRadius: 16, padding: 18 }}>
+      <div style={{ borderRadius: 20, padding: 18, background: "linear-gradient(170deg, #171d19, #111512)", border: `1px solid ${COLORS.line}` }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-          <span style={{ color: COLORS.creamDim, fontSize: 11, textTransform: "uppercase", letterSpacing: 1 }}>Top ranking global</span>
-          <button onClick={() => go("ranking")} style={{ background: "none", border: "none", color: COLORS.gold, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Ver todo →</button>
+          <span style={{ color: COLORS.cream, fontWeight: 800, fontSize: 14 }}>⚡ Actividad</span>
+          <button onClick={openNotifications} style={{ background: "none", border: "none", color: VIBE.cyan, fontSize: 11.5, fontWeight: 800, cursor: "pointer" }}>Ver todo →</button>
         </div>
-        {top.length === 0 && <div style={{ color: COLORS.creamDim, fontSize: 11.5, padding: "6px 0" }}>Aún nadie envía boleto este sorteo.</div>}
-        {top.map(p => (
-          <div key={p.rank} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 0" }}>
-            <span style={{ width: 16, textAlign: "center", fontFamily: "var(--font-mono), 'Courier New', monospace", color: p.rank === 1 ? COLORS.gold : COLORS.creamDim, fontWeight: 800, fontSize: 12 }}>{p.rank}</span>
-            <span style={{ fontSize: 16 }}>{p.avatar}</span>
-            <span style={{ flex: 1, color: COLORS.cream, fontSize: 12, fontWeight: 600 }}>{p.name}</span>
-            <span style={{ color: COLORS.creamDim, fontSize: 11, fontFamily: "var(--font-mono), 'Courier New', monospace" }}>{p.aciertos}/10</span>
-          </div>
-        ))}
-      </div>
-
-      <div style={{ background: COLORS.bgCard, border: `1px solid ${COLORS.line}`, borderRadius: 16, padding: 18 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-          <span style={{ color: COLORS.creamDim, fontSize: 11, textTransform: "uppercase", letterSpacing: 1 }}>Actividad reciente</span>
-          <button onClick={openNotifications} style={{ background: "none", border: "none", color: COLORS.gold, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Ver todo →</button>
-        </div>
-        {notifications.length === 0 && <div style={{ color: COLORS.creamDim, fontSize: 11.5, padding: "6px 0" }}>Sin actividad todavía.</div>}
-        {notifications.slice(0, 4).map(n => (
-          <div key={n.id} onClick={openNotifications} style={{ display: "flex", gap: 10, padding: "7px 0", alignItems: "flex-start", cursor: "pointer" }}>
-            <span style={{ fontSize: 15 }}>{n.icon}</span>
+        {notifications.length === 0 && <div style={{ color: COLORS.creamDim, fontSize: 12, padding: "8px 0" }}>Sin actividad todavía. Crea una quiniela e invita a tu banda.</div>}
+        {notifications.slice(0, 5).map((n, k) => (
+          <div key={n.id} onClick={openNotifications} style={{ display: "flex", gap: 10, padding: "9px 0", alignItems: "flex-start", cursor: "pointer", borderTop: k ? `1px solid ${COLORS.line}` : "none" }}>
+            <span style={{ width: 30, height: 30, borderRadius: 10, background: grad(k), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0 }}>{n.icon}</span>
             <div style={{ flex: 1 }}>
-              <div style={{ color: COLORS.cream, fontSize: 11.5, lineHeight: 1.4 }}>{n.title}</div>
+              <div style={{ color: COLORS.cream, fontSize: 11.5, lineHeight: 1.4, fontWeight: n.unread ? 700 : 500 }}>{n.title}</div>
               <div style={{ color: COLORS.creamDim, fontSize: 10, marginTop: 2 }}>{n.time}</div>
             </div>
+            {n.unread && <span style={{ width: 7, height: 7, borderRadius: "50%", background: VIBE.pink, marginTop: 5 }} />}
           </div>
         ))}
       </div>
@@ -3428,16 +3716,14 @@ function DesktopRightPanel({ notifications = NOTIFICATIONS }) {
   );
 }
 
-// Dashboard de escritorio: reutiliza HomeScreen tal cual como columna principal
-// (misma lógica, mismos datos) y le suma la columna de estadísticas de al lado —
-// nada se duplica, solo se le da más aire y más contexto al mismo contenido.
+// Dashboard de escritorio: columna principal (HomeScreen en modo ancho) + panel lateral.
 function DesktopDashboard(props) {
   return (
-    <div style={{ display: "flex", gap: 28, alignItems: "flex-start", maxWidth: 1240, margin: "0 auto" }}>
-      <div style={{ flex: "1 1 620px", minWidth: 0 }}>
-        <HomeScreen {...props} />
+    <div style={{ display: "flex", gap: 24, alignItems: "flex-start", maxWidth: 1320, margin: "0 auto" }}>
+      <div style={{ flex: "1 1 680px", minWidth: 0 }}>
+        <HomeScreen {...props} wide />
       </div>
-      <div style={{ flex: "0 0 320px" }}>
+      <div style={{ flex: "0 0 320px", position: "sticky", top: 0 }}>
         <DesktopRightPanel notifications={props.notifications} />
       </div>
     </div>
