@@ -1,4 +1,5 @@
 import { sql } from "../../../lib/db";
+import { requireAdmin } from "../../../lib/admin";
 
 // GET /api/scores — marcador actual (gamescore). Filtra por ?status=live
 // para solo los partidos en curso, igual que usan las pantallas de Partidos
@@ -28,6 +29,8 @@ export async function GET(req) {
 // POST /api/scores — el job que sincroniza con API-Football (o el panel de
 // administración) usa esto para escribir/actualizar un marcador.
 export async function POST(req) {
+  const a = await requireAdmin();
+  if (a.error) return a.error;
   const { id, league_id, home_team, away_team, home_score, away_score, status, match_minute, kickoff_at } = await req.json();
 
   const rows = id

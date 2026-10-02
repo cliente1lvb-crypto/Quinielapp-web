@@ -2264,13 +2264,31 @@ function SettingsScreen({ onClose, plan, onDowngrade, onLogout, onDeleteAccount 
   const { userName, openLegal, me, dbMode, saveProfile } = React.useContext(AppCtx);
   const [name, setName] = useState((me && me.name) || userName);
   const [avatar, setAvatar] = useState((me && me.avatar) || "🦁");
+  const [birthdate, setBirthdate] = useState((me && me.birthdate) || "");
   const [profileMsg, setProfileMsg] = useState("");
-  const profileDirty = !!me && (name.trim() !== me.name || avatar !== (me.avatar || "🦁"));
+  const profileDirty = !!me && (name.trim() !== me.name || avatar !== (me.avatar || "🦁") || birthdate !== (me.birthdate || ""));
   const doSaveProfile = async () => {
     setProfileMsg("Guardando...");
-    const r = await saveProfile({ name: name.trim(), avatar });
+    const r = await saveProfile({ name: name.trim(), avatar, birthdate });
     setProfileMsg(r.ok ? "Cambios guardados ✓" : r.error);
   };
+  const [curPass, setCurPass] = useState("");
+  const [newPass, setNewPass] = useState("");
+  const [newPass2, setNewPass2] = useState("");
+  const [passMsg, setPassMsg] = useState(null);
+  const doChangePass = async () => {
+    if (newPass.length < 8) return setPassMsg({ ok: false, t: "La nueva contraseña debe tener al menos 8 caracteres." });
+    if (newPass !== newPass2) return setPassMsg({ ok: false, t: "Las contraseñas nuevas no coinciden." });
+    setPassMsg({ ok: true, t: "Guardando..." });
+    const r = await saveProfile({ currentPassword: curPass, newPassword: newPass });
+    if (r.ok) { setCurPass(""); setNewPass(""); setNewPass2(""); }
+    setPassMsg({ ok: r.ok, t: r.ok ? "Contraseña actualizada ✓" : r.error });
+  };
+  const fieldStyle = {
+    width: "100%", background: COLORS.bgCard, border: `1px solid ${COLORS.line}`, borderRadius: 10, boxSizing: "border-box",
+    padding: "10px 12px", color: COLORS.cream, fontSize: 13, marginTop: 6, marginBottom: 14, outline: "none", colorScheme: "dark",
+  };
+  const labelStyle = { color: COLORS.creamDim, fontSize: 11, textTransform: "uppercase", letterSpacing: 1 };
   const [confirmLogout, setConfirmLogout] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [deleteStep, setDeleteStep] = useState(0); // 0 | 1 | 2
@@ -2306,10 +2324,15 @@ function SettingsScreen({ onClose, plan, onDowngrade, onLogout, onDeleteAccount 
         </div>
 
         <label style={{ color: COLORS.creamDim, fontSize: 11, textTransform: "uppercase", letterSpacing: 1 }}>Nombre</label>
-        <input value={name} onChange={e => setName(e.target.value)} style={{
-          width: "100%", background: COLORS.bgCard, border: `1px solid ${COLORS.line}`, borderRadius: 10,
-          padding: "10px 12px", color: COLORS.cream, fontSize: 13, marginTop: 6, marginBottom: dbMode ? 10 : 20, outline: "none",
-        }} />
+        <input value={name} onChange={e => setName(e.target.value)} style={fieldStyle} />
+        {dbMode && me && (
+          <>
+            <label style={labelStyle}>Correo</label>
+            <input value={me.email || ""} readOnly style={{ ...fieldStyle, color: COLORS.creamDim }} />
+            <label style={labelStyle}>Fecha de nacimiento</label>
+            <input type="date" value={birthdate} onChange={e => setBirthdate(e.target.value)} style={fieldStyle} />
+          </>
+        )}
         {dbMode && (
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
             <button onClick={doSaveProfile} disabled={!profileDirty} style={{
@@ -2317,6 +2340,27 @@ function SettingsScreen({ onClose, plan, onDowngrade, onLogout, onDeleteAccount 
               border: "none", borderRadius: 10, padding: "9px 16px", fontWeight: 800, fontSize: 12.5, cursor: profileDirty ? "pointer" : "default",
             }}>Guardar cambios</button>
             {profileMsg && <span style={{ color: COLORS.creamDim, fontSize: 11.5 }}>{profileMsg}</span>}
+          </div>
+        )}
+
+        {dbMode && me && (
+          <div style={{ background: COLORS.bgCard, border: `1px solid ${COLORS.line}`, borderRadius: 14, padding: 14, marginBottom: 20 }}>
+            <div style={{ color: COLORS.cream, fontWeight: 800, fontSize: 13.5, marginBottom: 10 }}>🔒 {me.hasPassword ? "Cambiar contraseña" : "Crear contraseña"}</div>
+            {me.hasPassword && (
+              <>
+                <label style={labelStyle}>Contraseña actual</label>
+                <input type="password" value={curPass} onChange={e => setCurPass(e.target.value)} style={{ ...fieldStyle, background: COLORS.bg }} />
+              </>
+            )}
+            <label style={labelStyle}>Nueva contraseña</label>
+            <input type="password" value={newPass} onChange={e => setNewPass(e.target.value)} placeholder="Mínimo 8 caracteres" style={{ ...fieldStyle, background: COLORS.bg }} />
+            <label style={labelStyle}>Repite la nueva contraseña</label>
+            <input type="password" value={newPass2} onChange={e => setNewPass2(e.target.value)} style={{ ...fieldStyle, background: COLORS.bg }} />
+            <button onClick={doChangePass} disabled={!newPass} style={{
+              background: newPass ? COLORS.gold : COLORS.line, color: newPass ? COLORS.bg : COLORS.creamDim, border: "none",
+              borderRadius: 10, padding: "9px 16px", fontWeight: 800, fontSize: 12.5, cursor: newPass ? "pointer" : "default",
+            }}>Guardar contraseña</button>
+            {passMsg && <div style={{ color: passMsg.ok ? COLORS.gold : COLORS.live, fontSize: 11.5, marginTop: 8 }}>{passMsg.t}</div>}
           </div>
         )}
 
@@ -2968,19 +3012,6 @@ function LoginScreen({ wide = false }) {
   const [pass, setPass] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [devLoadingEmail, setDevLoadingEmail] = useState(null);
-
-  // Acceso directo con las cuentas de prueba de authOptions.js (DEV_USERS).
-  // Solo tienen efecto mientras no exista DATABASE_URL — en cuanto la
-  // configures, estas cuentas dejan de funcionar automáticamente.
-  const devLogin = async (devEmail, devPassword) => {
-    setError("");
-    setDevLoadingEmail(devEmail);
-    const result = await signIn("credentials", { email: devEmail, password: devPassword, redirect: false });
-    if (result?.error) setError("Las cuentas de prueba se desactivaron: ya hay una base de datos real conectada.");
-    setDevLoadingEmail(null);
-  };
-
   const canSubmit = mode === "login"
     ? email.trim() && pass.trim()
     : name.trim() && email.trim() && birthdate.trim() && pass.trim();
@@ -3026,36 +3057,6 @@ function LoginScreen({ wide = false }) {
           </div>
           <div style={{ color: COLORS.cream, fontWeight: 700, fontSize: 20, letterSpacing: -0.3 }}>Quinielapp</div>
           <div style={{ color: COLORS.creamDim, fontSize: 12, marginTop: 4 }}>Arma la quiniela con tu banda</div>
-        </div>
-
-    </>
-  );
-  const demoBox = (
-    <>
-        <div style={{
-          background: COLORS.goldSoft, border: `1px dashed ${COLORS.gold}88`, borderRadius: 12,
-          padding: 14, marginBottom: 20,
-        }}>
-          <div style={{ color: COLORS.gold, fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>
-            Modo de pruebas — sin base de datos
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <button onClick={() => devLogin("demo@quinielapp.com", "demo1234")} disabled={!!devLoadingEmail} style={{
-              width: "100%", background: COLORS.bg, border: `1px solid ${COLORS.gold}`, borderRadius: 10,
-              padding: "10px 12px", color: COLORS.cream, fontWeight: 700, fontSize: 12.5, cursor: "pointer", textAlign: "left",
-            }}>
-              {devLoadingEmail === "demo@quinielapp.com" ? "Entrando..." : "Entrar como Demo Rodrigo"}
-            </button>
-            <button onClick={() => devLogin("admin@quinielapp.com", "admin1234")} disabled={!!devLoadingEmail} style={{
-              width: "100%", background: COLORS.bg, border: `1px solid ${COLORS.gold}`, borderRadius: 10,
-              padding: "10px 12px", color: COLORS.cream, fontWeight: 700, fontSize: 12.5, cursor: "pointer", textAlign: "left",
-            }}>
-              {devLoadingEmail === "admin@quinielapp.com" ? "Entrando..." : "Entrar como Demo Admin"}
-            </button>
-          </div>
-          <div style={{ color: COLORS.creamDim, fontSize: 9.5, marginTop: 10, lineHeight: 1.5 }}>
-            demo@quinielapp.com / demo1234 · admin@quinielapp.com / admin1234 — se desactivan solas en cuanto conectes Neon de verdad.
-          </div>
         </div>
 
     </>
@@ -3205,7 +3206,6 @@ function LoginScreen({ wide = false }) {
               }}>{t}</span>
             ))}
           </div>
-          <div style={{ maxWidth: 440 }}>{demoBox}</div>
         </div>
         <div style={{ padding: "56px 56px 40px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
           <div style={{ color: COLORS.cream, fontWeight: 700, fontSize: 22, marginBottom: 6 }}>
@@ -3225,7 +3225,6 @@ function LoginScreen({ wide = false }) {
     <div style={{ display: "flex", flexDirection: "column", flex: 1, padding: "48px 24px 32px", justifyContent: "space-between", overflowY: "auto" }}>
       <div>
         {header}
-        {demoBox}
         {formBlock}
       </div>
 
@@ -3652,7 +3651,7 @@ function useIsDesktop(breakpoint = 900) {
 }
 
 function SidebarNav({ tab, setTab }) {
-  const { userName, me, openCreate, openNotifications, unreadCount, globalData, go } = React.useContext(AppCtx);
+  const { userName, me, globalData } = React.useContext(AppCtx);
   const items = [
     { id: "home", icon: HomeIcon, label: "Inicio", sub: "Tu tablero", c: 0 },
     { id: "quinielas", icon: Trophy, label: "Quinielas", sub: "Tus grupos", c: 2 },
@@ -3665,11 +3664,6 @@ function SidebarNav({ tab, setTab }) {
   const Label = ({ children }) => (
     <div style={{ color: COLORS.creamDim, fontSize: 10, fontWeight: 800, letterSpacing: 1.6, textTransform: "uppercase", padding: "0 10px", margin: "4px 0 8px", opacity: 0.8 }}>{children}</div>
   );
-  const shortcuts = [
-    { icon: Plus, label: "Crear quiniela", onClick: openCreate, c: 0 },
-    { icon: Ticket, label: "Unirme con código", onClick: () => (go ? go("quinielas") : setTab("quinielas")), c: 3 },
-    { icon: Bell, label: "Notificaciones", onClick: openNotifications, c: 4, badge: unreadCount },
-  ];
   return (
     <div style={{
       width: 248, flexShrink: 0, borderRight: `1px solid ${COLORS.line}`,
@@ -3709,25 +3703,6 @@ function SidebarNav({ tab, setTab }) {
                 <span style={{ color: active ? COLORS.cream : "#C9D1CB", fontWeight: active ? 800 : 600, fontSize: 13.5 }}>{it.label}</span>
                 <span style={{ color: COLORS.creamDim, fontSize: 10.5, marginTop: 1 }}>{it.sub}</span>
               </span>
-            </button>
-          );
-        })}
-      </div>
-
-      <Label>Atajos</Label>
-      <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 22 }}>
-        {shortcuts.map(sc => {
-          const Icon = sc.icon;
-          return (
-            <button key={sc.label} onClick={sc.onClick} style={{
-              display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 12, border: "none",
-              background: "transparent", cursor: "pointer", font: "inherit", color: "#C9D1CB", fontSize: 12.5, fontWeight: 600, textAlign: "left",
-            }}>
-              <span style={{ width: 26, height: 26, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid rgba(255,255,255,.1)", background: "#ffffff06" }}>
-                <Icon size={13} color={CARD_GRADIENTS[sc.c][0]} strokeWidth={2.4} />
-              </span>
-              <span style={{ flex: 1 }}>{sc.label}</span>
-              {sc.badge > 0 && <span style={{ minWidth: 18, height: 18, borderRadius: 999, fontSize: 10, fontWeight: 800, color: "#fff", background: "linear-gradient(90deg,#FF3B3B,#FF3D81)", display: "flex", alignItems: "center", justifyContent: "center", padding: "0 5px" }}>{sc.badge}</span>}
             </button>
           );
         })}
@@ -4069,7 +4044,10 @@ export default function MiQuinielaApp() {
           onDowngrade={() => setPlan("free")}
           onLogout={() => { setShowSettings(false); signOut(); }}
           // TODO: cuando exista DELETE /api/users, llamarlo aquí antes de cerrar sesión.
-          onDeleteAccount={() => { setShowSettings(false); setPlan("free"); signOut(); }}
+          onDeleteAccount={async () => {
+            if (dbMode) { const r = await api("/api/me", { method: "DELETE" }); if (!r.ok) { toast(r.error); return; } }
+            setShowSettings(false); setPlan("free"); signOut();
+          }}
         />
       )}
       {legal && <LegalScreen kind={legal} onClose={() => setLegal(null)} />}

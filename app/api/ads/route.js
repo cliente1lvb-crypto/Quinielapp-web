@@ -1,4 +1,5 @@
 import { sql } from "../../../lib/db";
+import { requireAdmin } from "../../../lib/admin";
 
 // GET /api/ads?placement=home_banner
 // Devuelve el anuncio activo más reciente para ese espacio, o { ad: null } si
@@ -35,6 +36,8 @@ export async function GET(req) {
 // La forma más simple: exigir un header "x-admin-key" que compares contra una
 // variable de entorno ADMIN_KEY antes de tener un panel de administración real.
 export async function POST(req) {
+  const a = await requireAdmin();
+  if (a.error) return a.error;
   const { advertiser, placement, image_url, target_url, ends_at } = await req.json();
 
   if (!advertiser || !placement || !image_url || !target_url) {
