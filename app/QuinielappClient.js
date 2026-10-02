@@ -920,7 +920,7 @@ function VibeStyles() {
     <style>{`
       @keyframes qv-marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
       @keyframes qv-pulse { 0% { box-shadow: 0 0 0 0 rgba(255,59,59,.7); } 100% { box-shadow: 0 0 0 8px rgba(255,59,59,0); } }
-      @keyframes qv-shine { 0% { background-position: 0% 50%; } 100% { background-position: 200% 50%; } }
+      @keyframes qv-shine { 0% { background-position: 0% 50%; } 100% { background-position: 100% 50%; } }
       @keyframes qv-float { 0%,100% { transform: translateY(0) rotate(-8deg); } 50% { transform: translateY(-10px) rotate(4deg); } }
       @keyframes qv-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
       .qv-rise { animation: qv-rise .5s ease-out both; }
@@ -3652,52 +3652,105 @@ function useIsDesktop(breakpoint = 900) {
 }
 
 function SidebarNav({ tab, setTab }) {
-  const { userName, me, openAdvertise } = React.useContext(AppCtx);
+  const { userName, me, openCreate, openNotifications, unreadCount, globalData, go } = React.useContext(AppCtx);
   const items = [
-    { id: "home", icon: HomeIcon, label: "Inicio", c: 0 },
-    { id: "quinielas", icon: Trophy, label: "Quinielas", c: 2 },
-    { id: "ranking", icon: BarChart3, label: "Ranking", c: 1 },
-    { id: "profile", icon: Users, label: "Perfil", c: 3 },
+    { id: "home", icon: HomeIcon, label: "Inicio", sub: "Tu tablero", c: 0 },
+    { id: "quinielas", icon: Trophy, label: "Quinielas", sub: "Tus grupos", c: 2 },
+    { id: "ranking", icon: BarChart3, label: "Ranking", sub: "Global y torneos", c: 1 },
+    { id: "profile", icon: Users, label: "Perfil", sub: "Cuenta y plan", c: 3 },
+  ];
+  const closesAt = (globalData && globalData.draw && globalData.draw.closesAt && new Date(globalData.draw.closesAt) > new Date())
+    ? globalData.draw.closesAt : nextFridayEvening();
+  const cd = useCountdown(closesAt);
+  const Label = ({ children }) => (
+    <div style={{ color: COLORS.creamDim, fontSize: 10, fontWeight: 800, letterSpacing: 1.6, textTransform: "uppercase", padding: "0 10px", margin: "4px 0 8px", opacity: 0.8 }}>{children}</div>
+  );
+  const shortcuts = [
+    { icon: Plus, label: "Crear quiniela", onClick: openCreate, c: 0 },
+    { icon: Ticket, label: "Unirme con código", onClick: () => (go ? go("quinielas") : setTab("quinielas")), c: 3 },
+    { icon: Bell, label: "Notificaciones", onClick: openNotifications, c: 4, badge: unreadCount },
   ];
   return (
     <div style={{
-      width: 236, flexShrink: 0, borderRight: `1px solid ${COLORS.line}`,
-      background: "linear-gradient(180deg, #121814 0%, #0c100d 100%)", padding: "24px 14px", display: "flex",
-      flexDirection: "column", gap: 4, position: "sticky", top: 0, height: "100vh", boxSizing: "border-box",
+      width: 248, flexShrink: 0, borderRight: `1px solid ${COLORS.line}`,
+      background: "linear-gradient(180deg, #121814 0%, #0c100d 100%)", padding: "24px 14px 18px", display: "flex",
+      flexDirection: "column", position: "sticky", top: 0, height: "100vh", boxSizing: "border-box", overflowY: "auto",
     }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "0 8px", marginBottom: 28 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "0 8px", marginBottom: 26 }}>
         <div style={{
-          width: 38, height: 38, borderRadius: 12, background: "linear-gradient(135deg,#2BE87A,#22D3EE)",
+          width: 40, height: 40, borderRadius: 12, background: "linear-gradient(135deg,#2BE87A,#22D3EE)",
           display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 6px 18px rgba(43,232,122,.35)",
         }}>
-          <TicketLogo size={20} color="#0A0D0B" />
+          <TicketLogo size={21} color="#0A0D0B" />
         </div>
         <div>
           <div style={{ color: COLORS.cream, fontWeight: 800, fontSize: 16, letterSpacing: -0.3 }}>Quinielapp</div>
           <div style={{ color: COLORS.creamDim, fontSize: 10 }}>Arma la quiniela con tu banda</div>
         </div>
       </div>
-      {items.map(it => {
-        const active = tab === it.id;
-        const Icon = it.icon;
-        return (
-          <button key={it.id} onClick={() => setTab(it.id)} style={{
-            position: "relative", display: "flex", alignItems: "center", gap: 12, padding: "11px 12px", borderRadius: 12,
-            border: "none", cursor: "pointer", textAlign: "left", font: "inherit",
-            background: active ? "rgba(255,255,255,.07)" : "transparent",
-            color: active ? COLORS.cream : COLORS.creamDim, fontWeight: active ? 800 : 500, fontSize: 13.5,
-          }}>
-            {active && <span style={{ position: "absolute", left: -14, top: 8, bottom: 8, width: 4, borderRadius: 4, background: grad(it.c, 180) }} />}
-            <span style={{
-              width: 30, height: 30, borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center",
-              background: active ? grad(it.c) : "#ffffff08",
-            }}><Icon size={16} color={active ? "#0A0D0B" : COLORS.creamDim} strokeWidth={active ? 2.6 : 1.8} /></span>
-            {it.label}
-          </button>
-        );
-      })}
 
-      <div style={{ flex: 1 }} />
+      <Label>Menú</Label>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 22 }}>
+        {items.map(it => {
+          const active = tab === it.id;
+          const Icon = it.icon;
+          return (
+            <button key={it.id} onClick={() => setTab(it.id)} style={{
+              position: "relative", display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", borderRadius: 14,
+              border: active ? "1px solid rgba(255,255,255,.08)" : "1px solid transparent", cursor: "pointer", textAlign: "left", font: "inherit",
+              background: active ? "rgba(255,255,255,.06)" : "transparent", transition: "background .15s",
+            }}>
+              {active && <span style={{ position: "absolute", left: -14, top: 10, bottom: 10, width: 4, borderRadius: 4, background: grad(it.c, 180) }} />}
+              <span style={{
+                width: 36, height: 36, borderRadius: 11, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                background: active ? grad(it.c) : "#ffffff08", boxShadow: active ? "0 6px 16px rgba(0,0,0,.35)" : "none",
+              }}><Icon size={17} color={active ? "#0A0D0B" : COLORS.creamDim} strokeWidth={active ? 2.6 : 1.8} /></span>
+              <span style={{ display: "flex", flexDirection: "column" }}>
+                <span style={{ color: active ? COLORS.cream : "#C9D1CB", fontWeight: active ? 800 : 600, fontSize: 13.5 }}>{it.label}</span>
+                <span style={{ color: COLORS.creamDim, fontSize: 10.5, marginTop: 1 }}>{it.sub}</span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      <Label>Atajos</Label>
+      <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 22 }}>
+        {shortcuts.map(sc => {
+          const Icon = sc.icon;
+          return (
+            <button key={sc.label} onClick={sc.onClick} style={{
+              display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 12, border: "none",
+              background: "transparent", cursor: "pointer", font: "inherit", color: "#C9D1CB", fontSize: 12.5, fontWeight: 600, textAlign: "left",
+            }}>
+              <span style={{ width: 26, height: 26, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid rgba(255,255,255,.1)", background: "#ffffff06" }}>
+                <Icon size={13} color={CARD_GRADIENTS[sc.c][0]} strokeWidth={2.4} />
+              </span>
+              <span style={{ flex: 1 }}>{sc.label}</span>
+              {sc.badge > 0 && <span style={{ minWidth: 18, height: 18, borderRadius: 999, fontSize: 10, fontWeight: 800, color: "#fff", background: "linear-gradient(90deg,#FF3B3B,#FF3D81)", display: "flex", alignItems: "center", justifyContent: "center", padding: "0 5px" }}>{sc.badge}</span>}
+            </button>
+          );
+        })}
+      </div>
+
+      <Label>Quiniela Global</Label>
+      <button onClick={() => setTab("ranking")} style={{
+        textAlign: "left", cursor: "pointer", font: "inherit", borderRadius: 16, padding: 14, marginBottom: 18,
+        background: "linear-gradient(150deg, #10302a, #121814)", border: "1px solid rgba(43,232,122,.22)",
+      }}>
+        <div style={{ color: COLORS.creamDim, fontSize: 10.5 }}>El sorteo cierra en</div>
+        <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+          {[[cd ? cd.d : "–", "d"], [cd ? cd.h : "–", "h"], [cd ? cd.m : "–", "m"], [cd ? cd.s : "–", "s"]].map(([v, l]) => (
+            <div key={l} style={{ flex: 1, textAlign: "center", padding: "6px 0", borderRadius: 9, background: "rgba(0,0,0,.3)" }}>
+              <span style={{ color: VIBE.green, fontWeight: 800, fontSize: 15, fontFamily: "var(--font-mono), monospace" }}>{typeof v === "number" ? String(v).padStart(2, "0") : v}</span>
+              <span style={{ color: COLORS.creamDim, fontSize: 9.5, marginLeft: 2 }}>{l}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{ color: VIBE.cyan, fontSize: 11.5, fontWeight: 800, marginTop: 10 }}>Llenar mi boleto →</div>
+      </button>
+
+      <div style={{ flex: 1, minHeight: 10 }} />
 
       <div style={{
         borderRadius: 16, padding: 14, marginBottom: 12, position: "relative", overflow: "hidden",
@@ -3715,7 +3768,7 @@ function SidebarNav({ tab, setTab }) {
         display: "flex", alignItems: "center", gap: 10, padding: 10, borderRadius: 14, background: "#ffffff08",
         border: `1px solid ${COLORS.line}`, cursor: "pointer", textAlign: "left", font: "inherit",
       }}>
-        <div style={{ width: 34, height: 34, borderRadius: "50%", background: grad(1), padding: 2 }}>
+        <div style={{ width: 34, height: 34, borderRadius: "50%", background: grad(1), padding: 2, flexShrink: 0 }}>
           <div style={{ width: "100%", height: "100%", borderRadius: "50%", background: COLORS.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>{(me && me.avatar) || "🦁"}</div>
         </div>
         <div style={{ minWidth: 0 }}>
@@ -3933,6 +3986,8 @@ export default function MiQuinielaApp() {
     openFriends: () => setShowFriends(true),
     openHistory: () => setShowHistory(true),
     openNotifications: () => setShowNotifications(true),
+    openCreate: () => setShowCreate(true),
+    unreadCount,
     dbMode, me, globalData, toast,
     submitGlobal: async (picks) => {
       if (!dbMode) return { ok: true };
