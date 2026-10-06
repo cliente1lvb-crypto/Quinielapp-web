@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { useSession, signIn, signOut } from "next-auth/react";
+import { LEGAL_DOCS, LAST_UPDATE as LEGAL_UPDATED } from "../lib/legal";
 import { Trophy, Plus, Users, MessageCircle, Home as HomeIcon, X, Send, Crown, ChevronRight, Settings, Shield, Smile, Bell, LogOut, Camera, Inbox, BarChart3, Trash2, Flag, MoreVertical, Megaphone, Mail, Search, Ticket, Check, FileText, Shirt, Globe, Target, Flame, Sun, Moon, CalendarDays } from "lucide-react";
 
 // ---------- Design tokens ----------
@@ -3398,44 +3399,29 @@ function AdvertiseScreen({ onClose }) {
   );
 }
 
-const LEGAL = {
-  privacy: {
-    title: "Aviso de privacidad",
-    body: [
-      ["Qué datos guardamos", "Tu nombre, correo, fecha de nacimiento (si te registras con correo), foto de perfil de Google o Facebook (si entras con ellos) y tus pronósticos."],
-      ["Para qué los usamos", "Para crear tu cuenta, armar las quinielas con tus amigos, calcular el ranking y avisarte cuando cierra un sorteo o alguien te rebasa."],
-      ["Con quién los compartimos", "Con nadie para fines comerciales. Solo los proveedores que hacen funcionar la app (hospedaje y base de datos) los procesan en nuestro nombre."],
-      ["Tus derechos", "Puedes corregir tu nombre en Ajustes y eliminar tu cuenta en cualquier momento desde Ajustes → Eliminar cuenta."],
-    ],
-  },
-  terms: {
-    title: "Términos de uso",
-    body: [
-      ["Uso de la app", "Quinielapp es para organizar quinielas entre amigos y competir en el ranking. Debes ser mayor de edad para registrarte."],
-      ["Premios", "Los premios de los torneos oficiales se entregan según las reglas publicadas en cada torneo. Las quinielas privadas se organizan entre sus miembros."],
-      ["Conducta", "No se permiten mensajes ofensivos, spam ni suplantar a otras personas. Puedes reportar o bloquear a cualquiera desde el chat."],
-      ["Cambios", "Podemos actualizar estos términos; te avisaremos dentro de la app cuando haya cambios importantes."],
-    ],
-  },
-};
-
 function LegalScreen({ kind, onClose }) {
-  const doc = LEGAL[kind] || LEGAL.terms;
+  const doc = LEGAL_DOCS[kind] || LEGAL_DOCS.terms;
   return (
     <div style={{ position: "absolute", inset: 0, background: COLORS.bg, zIndex: 30, display: "flex", flexDirection: "column" }}>
       <div style={{ padding: "18px 16px 14px", borderBottom: `1px solid ${COLORS.line}`, display: "flex", alignItems: "center", gap: 10 }}>
         <button onClick={onClose} style={{ background: "none", border: "none", color: COLORS.creamDim, cursor: "pointer", fontSize: 18 }}>←</button>
         <FileText size={16} color={COLORS.gold} />
-        <span style={{ color: COLORS.cream, fontWeight: 800, fontSize: 15 }}>{doc.title}</span>
+        <span style={{ color: COLORS.cream, fontWeight: 800, fontSize: 15, flex: 1 }}>{doc.title}</span>
+        <a href={`/${doc.slug}`} target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent-text)", fontSize: 11.5, fontWeight: 700 }}>Abrir en web ↗</a>
       </div>
       <div style={{ padding: 18, overflowY: "auto", flex: 1 }}>
-        {doc.body.map(([h, t]) => (
+        <div style={{ color: COLORS.creamDim, fontSize: 11, marginBottom: 10 }}>Última actualización: {LEGAL_UPDATED}</div>
+        <div style={{ color: COLORS.cream, fontSize: 13, lineHeight: 1.6, marginBottom: 16 }}>{doc.intro}</div>
+        {doc.sections.map(([h, t]) => (
           <div key={h} style={{ marginBottom: 16 }}>
             <div style={{ color: COLORS.cream, fontWeight: 700, fontSize: 13.5, marginBottom: 4 }}>{h}</div>
-            <div style={{ color: COLORS.creamDim, fontSize: 12.5, lineHeight: 1.6 }}>{t}</div>
+            {Array.isArray(t) ? (
+              <ul style={{ margin: 0, paddingLeft: 18, color: COLORS.creamDim, fontSize: 12.5, lineHeight: 1.6 }}>{t.map((li, i) => <li key={i}>{li}</li>)}</ul>
+            ) : (
+              <div style={{ color: COLORS.creamDim, fontSize: 12.5, lineHeight: 1.6 }}>{t}</div>
+            )}
           </div>
         ))}
-        <div style={{ color: COLORS.creamDim, fontSize: 10.5, marginTop: 8, opacity: 0.7 }}>Versión preliminar — el texto legal definitivo lo debe revisar un abogado antes del lanzamiento.</div>
       </div>
     </div>
   );
@@ -4025,6 +4011,10 @@ function LoginScreen({ wide = false }) {
           {mode === "login" ? "Regístrate" : "Inicia sesión"}
         </span>
       </div>
+      <div style={{ textAlign: "center", fontSize: 11, marginTop: 10, display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+        <a href="/privacidad" target="_blank" rel="noopener noreferrer" style={{ color: COLORS.creamDim }}>Aviso de privacidad</a>
+        <a href="/terminos" target="_blank" rel="noopener noreferrer" style={{ color: COLORS.creamDim }}>Términos y condiciones</a>
+      </div>
 
       {mode === "signup" && (
         <div style={{ textAlign: "center", color: COLORS.creamDim, fontSize: 10, marginTop: 12, lineHeight: 1.6 }}>
@@ -4061,10 +4051,10 @@ function LoginScreen({ wide = false }) {
             Arma la quiniela<br />con tu banda
           </div>
           <div style={{ color: COLORS.creamDim, fontSize: 15, lineHeight: 1.6, maxWidth: 440, marginBottom: 22 }}>
-            Quinielas privadas con amigos, ranking global estilo ProGol y torneos con premio — todo en un solo lugar.
+            Quinielas privadas con amigos, ranking global y torneos por diversión — gratis y sin apuestas.
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 30 }}>
-            {["Quinielas privadas", "Ranking global", "Torneos con premio", "Marcadores en vivo"].map(t => (
+            {["Quinielas privadas", "Ranking global", "Torneos", "100% gratis, sin apuestas"].map(t => (
               <span key={t} style={{
                 border: `1px solid ${COLORS.line}`, background: COLORS.bgCard, color: COLORS.cream,
                 fontSize: 11.5, fontWeight: 600, padding: "6px 11px", borderRadius: 999,
