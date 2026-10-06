@@ -4,6 +4,10 @@ import { useSession, signIn, signOut } from "next-auth/react";
 import { LEGAL_DOCS, LAST_UPDATE as LEGAL_UPDATED } from "../lib/legal";
 import { Trophy, Plus, Users, MessageCircle, Home as HomeIcon, X, Send, Crown, ChevronRight, Settings, Shield, Smile, Bell, LogOut, Camera, Inbox, BarChart3, Trash2, Flag, MoreVertical, Megaphone, Mail, Search, Ticket, Check, FileText, Shirt, Globe, Target, Flame, Sun, Moon, CalendarDays } from "lucide-react";
 
+// Login y funciones de Facebook (botón, invitar amigos de Facebook, pantalla de
+// amigos). Apagado hasta que Meta verifique la app; para activarlo, cambiar a true.
+const FACEBOOK_ENABLED = false;
+
 // ---------- Design tokens ----------
 // Estilo casa de apuestas: negro profundo, verde neón como acento "momios", rojo vivo para en vivo
 // Identidad "Estadio nocturno": negro/blanco con un solo acento verde.
@@ -630,7 +634,7 @@ function GlobalQuinielaCard({ joinedGlobal, onJoinGlobal }) {
   const { globalData, submitGlobal } = React.useContext(AppCtx);
   const sorteo = globalData && globalData.draw ? {
     numero: globalData.draw.id,
-    partidos: globalData.matches.map(m => ({ n: m.n, home: m.home, away: m.away, league: m.league })),
+    partidos: globalData.matches.map(m => ({ n: m.n, home: m.home, away: m.away, league: m.league, kickoffAt: m.kickoffAt })),
   } : GLOBAL_SORTEO;
   const myTicket = globalData ? globalData.myTicket : null;
   const [picks, setPicks] = useState(myTicket || {});
@@ -694,7 +698,7 @@ function GlobalQuinielaCard({ joinedGlobal, onJoinGlobal }) {
           <TeamBadge name={p.home} size={26} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ color: COLORS.cream, fontSize: 12, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.home} <span style={{ color: COLORS.creamDim, fontWeight: 500 }}>vs</span> {p.away}</div>
-            <div style={{ color: COLORS.creamDim, fontSize: 10 }}>{p.league}</div>
+            <div style={{ color: COLORS.creamDim, fontSize: 10 }}>{p.league}{p.kickoffAt ? <> · <span style={{ color: COLORS.cream }}>{kickLabel(p.kickoffAt)}</span></> : ""}</div>
           </div>
           <TeamBadge name={p.away} size={26} />
           <LEVPicker value={picks[p.n]} onChange={(v) => { if (!sent) setPicks(prev => ({ ...prev, [p.n]: v })); }} />
@@ -3033,7 +3037,7 @@ function ProfileScreen({ plan, onOpenPlan, onOpenHistory, onOpenSettings, onOpen
         <span style={{ color: COLORS.cream, fontSize: 13, fontWeight: 700, flex: 1, textAlign: "left" }}>Mi plan y suscripción</span>
         <ChevronRight size={16} color={COLORS.creamDim} />
       </button>
-      {[["Historial de quinielas", Trophy, onOpenHistory], ["Amigos", Users, openFriends], ["Anúnciate con nosotros", Megaphone, onOpenAdvertise], ["Ajustes", Settings, onOpenSettings]].map(([label, Icon, action]) => (
+      {[["Historial de quinielas", Trophy, onOpenHistory], ...(FACEBOOK_ENABLED ? [["Amigos", Users, openFriends]] : []), ["Anúnciate con nosotros", Megaphone, onOpenAdvertise], ["Ajustes", Settings, onOpenSettings]].map(([label, Icon, action]) => (
         <button key={label} onClick={action || undefined} style={{
           width: "100%", display: "flex", alignItems: "center", gap: 12, background: COLORS.bgCard,
           border: `1px solid ${COLORS.line}`, borderRadius: 12, padding: "13px 14px", marginBottom: 8,
@@ -3914,13 +3918,13 @@ function LoginScreen({ wide = false }) {
           <div style={{ padding: "11px 13px", borderRadius: 12, marginBottom: 14, background: "var(--live-soft)", border: `1px solid ${COLORS.live}`, color: COLORS.cream, fontSize: 12.5, lineHeight: 1.4 }}>{authError}</div>
         )}
         {inviteBanner}
-        <button onClick={() => signIn("facebook")} style={{
+        {FACEBOOK_ENABLED && <button onClick={() => signIn("facebook")} style={{
           width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
           background: "#1877F2", border: "none", borderRadius: 12, padding: "13px 0",
           color: "#fff", fontWeight: 700, fontSize: 13.5, cursor: "pointer", marginBottom: 10,
         }}>
           <FacebookIcon size={16} /> Continuar con Facebook
-        </button>
+        </button>}
         <button onClick={() => signIn("google")} style={{
           width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
           background: "#fff", border: `1px solid ${COLORS.line}`, borderRadius: 12, padding: "13px 0",
@@ -3929,7 +3933,7 @@ function LoginScreen({ wide = false }) {
           <GoogleIcon size={16} /> Continuar con Google
         </button>
         <div style={{ color: COLORS.creamDim, fontSize: 10.5, textAlign: "center", marginBottom: 18, lineHeight: 1.5 }}>
-          Entra en un clic con tu cuenta de Facebook o Google
+          {FACEBOOK_ENABLED ? "Entra en un clic con tu cuenta de Facebook o Google" : "Entra en un clic con tu cuenta de Google"}
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
@@ -4349,7 +4353,7 @@ function ManageMembersScreen({ q, onClose, dbMembers = null, meId = null, onRemo
 
 
 function InviteFriendsScreen({ q, onClose }) {
-  const [tab, setTab] = useState("facebook"); // facebook | link | contacts
+  const [tab, setTab] = useState(FACEBOOK_ENABLED ? "facebook" : "link"); // facebook | link | contacts
   const [invited, setInvited] = useState([]);
   const [copied, setCopied] = useState(false);
 
@@ -4397,7 +4401,7 @@ function InviteFriendsScreen({ q, onClose }) {
         </div>
 
         <div style={{ display: "flex", gap: 6, marginTop: 12 }}>
-          {[["facebook", "Facebook"], ["link", "Link"], ["contacts", "Contactos"]].map(([id, label]) => (
+          {[...(FACEBOOK_ENABLED ? [["facebook", "Facebook"]] : []), ["link", "Link"], ["contacts", "Contactos"]].map(([id, label]) => (
             <button key={id} onClick={() => setTab(id)} style={{
               flex: 1, padding: "8px 0", borderRadius: 10, border: "none", cursor: "pointer",
               background: tab === id ? COLORS.gold : COLORS.bgCard,
@@ -4407,7 +4411,7 @@ function InviteFriendsScreen({ q, onClose }) {
         </div>
       </div>
 
-      {tab === "facebook" && (
+      {FACEBOOK_ENABLED && tab === "facebook" && (
         <div style={{ padding: 16, overflowY: "auto", flex: 1 }}>
           <div style={{ color: COLORS.creamDim, fontSize: 11, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>
             Tus amigos de Facebook

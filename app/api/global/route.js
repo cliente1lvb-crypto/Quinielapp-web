@@ -18,7 +18,7 @@ export async function GET() {
     const draw = await currentDraw();
     if (!draw) return ok({ draw: null });
     const matches = await sql(
-      "select n, home_team, away_team, league, result from global_draw_matches where draw_id = $1 order by n",
+      "select n, home_team, away_team, league, result, kickoff_at from global_draw_matches where draw_id = $1 order by n",
       [draw.id]
     );
     const mine = await sql(
@@ -36,7 +36,7 @@ export async function GET() {
     const myIdx = ranking.findIndex(r => r.user_id === me.id);
     return ok({
       draw: { id: draw.id, closeLabel: draw.close_label, status: draw.status, closesAt: draw.closes_at },
-      matches: matches.map(m => ({ n: m.n, home: m.home_team, away: m.away_team, league: m.league, result: m.result })),
+      matches: matches.map(m => ({ n: m.n, home: m.home_team, away: m.away_team, league: m.league, result: m.result, kickoffAt: m.kickoff_at })),
       myTicket: mine[0] ? mine[0].picks : null,
       ranking: ranking.slice(0, 20).map((r, i) => ({
         rank: i + 1, name: r.user_id === me.id ? "Tú" : r.name, avatar: r.avatar || "🦁",
