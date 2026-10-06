@@ -3929,7 +3929,7 @@ function LoginScreen({ wide = false }) {
           <GoogleIcon size={16} /> Continuar con Google
         </button>
         <div style={{ color: COLORS.creamDim, fontSize: 10.5, textAlign: "center", marginBottom: 18, lineHeight: 1.5 }}>
-          Con Facebook además te ayudamos a encontrar amigos tuyos que ya están en Quinielapp
+          Entra en un clic con tu cuenta de Facebook o Google
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
@@ -4908,7 +4908,7 @@ export default function MiQuinielaApp() {
     setShowHistory(false); setShowAdvertise(false); setShowSettings(false); setShowFriends(false); setLegal(null);
   };
   const isDesktop = useIsDesktop();
-  const fromFacebook = session?.provider === "facebook";
+  const fromFacebook = false; // banner de "amigos de Facebook" desactivado (era de ejemplo)
 
   // Traduce el estado real de NextAuth (sesión sí/no) a las pantallas de este
   // prototipo. La pantalla "encontramos a tus amigos" solo tiene sentido justo
@@ -4923,7 +4923,9 @@ export default function MiQuinielaApp() {
     }
     // status === "authenticated"
     const alreadyShown = typeof window !== "undefined" && sessionStorage.getItem("qp_friends_shown");
-    if (session?.provider === "facebook" && !alreadyShown) {
+    // La pantalla "encontramos a tus amigos de Facebook" usaba datos de ejemplo:
+    // se desactiva hasta tener el permiso user_friends aprobado por Meta.
+    if (false && session?.provider === "facebook" && !alreadyShown) {
       sessionStorage.setItem("qp_friends_shown", "1");
       setAuthStep("friendsFound");
     } else {
