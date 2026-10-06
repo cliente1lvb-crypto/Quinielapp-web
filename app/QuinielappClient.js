@@ -38,7 +38,7 @@ const GLASS = {
 const AppCtx = React.createContext({
   userName: "Tú", go: () => {}, openAdvertise: () => {}, openLegal: () => {},
   openFriends: () => {}, openHistory: () => {}, openNotifications: () => {},
-  dbMode: false, me: null, globalData: null, submitGlobal: async () => ({ ok: true }),
+  dbMode: false, me: null, globalData: null, openJoin: () => {}, submitGlobal: async () => ({ ok: true }),
   saveProfile: async () => ({ ok: true }), toast: () => {},
 });
 
@@ -549,6 +549,40 @@ function HeroStat({ label, value }) {
   );
 }
 
+// Cómo se gana: 5 / 3 / 0 con ejemplos (pestaña Pronósticos).
+function PointsGuide() {
+  const rows = [
+    ["5", "pts", "Marcador exacto", "Pones 2-1 y queda 2-1", "var(--accent)", "var(--on-accent)"],
+    ["3", "pts", "Aciertas el resultado", "Pones 2-1 y queda 1-0 (ganó el mismo) · o pones 1-1 y queda 0-0", "var(--ink)", "var(--bg)"],
+    ["0", "pts", "Fallas", "Pones 2-1 y gana el visitante o empatan", "var(--tint-2)", "var(--ink-dim)"],
+  ];
+  return (
+    <div style={{ borderRadius: 14, border: `1px solid ${COLORS.line}`, background: COLORS.bgCard, padding: 14, marginBottom: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+        <Target size={15} color="var(--accent-text)" />
+        <span style={{ color: COLORS.cream, fontWeight: 800, fontSize: 13 }}>Así se ganan puntos</span>
+      </div>
+      <div style={{ display: "grid", gap: 8 }}>
+        {rows.map(([n, u, t, ex, bg, fg]) => (
+          <div key={t} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ width: 52, flexShrink: 0, borderRadius: 10, padding: "6px 0", textAlign: "center", background: bg, color: fg }}>
+              <span style={{ fontFamily: "var(--font-mono), monospace", fontWeight: 700, fontSize: 18, lineHeight: 1 }}>{n}</span>
+              <span style={{ fontSize: 9.5, fontWeight: 800, marginLeft: 2 }}>{u}</span>
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ color: COLORS.cream, fontWeight: 700, fontSize: 12.5 }}>{t}</div>
+              <div style={{ color: COLORS.creamDim, fontSize: 11, marginTop: 1, lineHeight: 1.35 }}>{ex}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{ color: COLORS.creamDim, fontSize: 10.5, marginTop: 10, lineHeight: 1.4 }}>
+        Gana quien sume más puntos al terminar todos los partidos. Si no registras pronóstico de un partido, ese partido vale 0.
+      </div>
+    </div>
+  );
+}
+
 function SegTabs({ value, onChange, options }) {
   return (
     <div style={{ display: "flex", gap: 6, padding: 5, borderRadius: 14, background: "var(--tint)", border: `1px solid ${COLORS.line}`, marginBottom: 16 }}>
@@ -908,6 +942,7 @@ function RankingScreen({ onJoinGlobal, joinedGlobal }) {
 }
 
 function EmptyQuinielasState({ onCreate }) {
+  const { openJoin } = React.useContext(AppCtx);
   const steps = [["🏆", "Crea tu quiniela", "Elige ligas y partidos del fin de semana"], ["📲", "Invita a tu banda", "Comparte el código por WhatsApp"], ["🎯", "Pronostica y gana", "5 pts marcador exacto · 3 por resultado"]];
   return (
     <div style={{ position: "relative", overflow: "hidden", borderRadius: 22, padding: "30px 20px", textAlign: "center", background: "var(--surface)", border: "1px solid var(--line)" }}>
@@ -929,6 +964,11 @@ function EmptyQuinielasState({ onCreate }) {
         background: "var(--accent)", color: "var(--on-accent)", fontWeight: 800, fontSize: 13.5,
         display: "inline-flex", alignItems: "center", gap: 6, boxShadow: "0 10px 26px var(--accent-glow)",
       }}><Plus size={15} strokeWidth={3} /> Crear mi primera quiniela</button>
+      <div style={{ position: "relative", marginTop: 12 }}>
+        <button onClick={() => openJoin && openJoin()} style={{ background: "none", border: "none", cursor: "pointer", font: "inherit", color: COLORS.creamDim, fontSize: 12.5, fontWeight: 700 }}>
+          ¿Te pasaron un código o link? <span style={{ color: "var(--accent-text)" }}>Unirme a una quiniela →</span>
+        </button>
+      </div>
     </div>
   );
 }
@@ -1211,7 +1251,7 @@ function featuredMatches(quinielas, real = null) {
 }
 
 function HomeScreen({ quinielas = QUINIELAS, onOpenQuiniela, onCreate, fromFacebook, plan, onOpenPlan, onOpenNotifications, unreadCount, wide = false }) {
-  const { userName, go, openFriends, globalData, me } = React.useContext(AppCtx);
+  const { userName, go, openFriends, globalData, me, openJoin } = React.useContext(AppCtx);
   const winning = quinielas.filter(q => q.you === 1).length;
   const live = quinielas.filter(q => q.status === "En vivo").length;
   const [calUpcoming, setCalUpcoming] = useState(null);
@@ -1334,11 +1374,17 @@ function HomeScreen({ quinielas = QUINIELAS, onOpenQuiniela, onCreate, fromFaceb
       {/* Mis quinielas */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
         <span className="qv-head" style={{ color: COLORS.cream, fontSize: 20 }}>Tus quinielas</span>
+        <div style={{ display: "flex", gap: 8 }}>
+        <button onClick={() => openJoin()} style={{
+          display: "flex", alignItems: "center", gap: 5, background: "var(--tint)", color: COLORS.cream, font: "inherit",
+          border: `1px solid ${COLORS.line}`, borderRadius: 999, padding: "8px 14px", fontWeight: 800, fontSize: 12, cursor: "pointer",
+        }}><Ticket size={14} /> Unirme con código</button>
         <button onClick={onCreate} style={{
           display: "flex", alignItems: "center", gap: 5, background: "var(--accent)", color: "var(--on-accent)",
           border: "none", borderRadius: 999, padding: "8px 14px", fontWeight: 800, fontSize: 12, cursor: "pointer",
           boxShadow: "0 6px 18px var(--accent-glow)",
         }}><Plus size={14} strokeWidth={3} /> Crear quiniela</button>
+        </div>
       </div>
       {quinielas.length === 0 ? (
         <EmptyQuinielasState onCreate={onCreate} />
@@ -1437,13 +1483,13 @@ function CalendarScreen({ wide = false, onCreate }) {
   const leagueById = Object.fromEntries((data.leagues || CAL_LEAGUE_DEFAULT).map(l => [l.id, l]));
 
   const chip = (active) => ({
-    padding: "7px 12px", borderRadius: 999, cursor: "pointer", font: "inherit", fontSize: 12, fontWeight: 800,
+    padding: "7px 12px", borderRadius: 999, cursor: "pointer", fontFamily: "inherit", fontSize: 12, fontWeight: 800,
     border: active ? "1px solid transparent" : `1px solid ${COLORS.line}`,
     background: active ? "var(--accent)" : "var(--tint)", color: active ? "var(--on-accent)" : COLORS.creamDim,
   });
   const navBtn = {
     width: 36, height: 36, borderRadius: 10, border: `1px solid ${COLORS.line}`, background: "var(--tint)", color: COLORS.cream,
-    cursor: "pointer", fontSize: 18, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", font: "inherit",
+    cursor: "pointer", fontSize: 18, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "inherit",
   };
 
   const grid = (
@@ -1463,7 +1509,7 @@ function CalendarScreen({ wide = false, onCreate }) {
           const leaguesHere = [...new Set(list.map(x => x.leagueId))];
           return (
             <button key={i} onClick={() => setSel(k)} style={{
-              position: "relative", minHeight: wide ? 86 : 52, borderRadius: 12, cursor: "pointer", font: "inherit", textAlign: "left",
+              position: "relative", minHeight: wide ? 86 : 52, borderRadius: 12, cursor: "pointer", fontFamily: "inherit", textAlign: "left",
               padding: wide ? "8px 9px" : "6px 5px", display: "flex", flexDirection: "column", gap: 4,
               background: isSel ? "var(--accent)" : list.length ? "var(--tint-2)" : "transparent",
               border: isToday && !isSel ? "1.5px solid var(--accent)" : `1px solid ${isSel ? "transparent" : COLORS.line}`,
@@ -1528,7 +1574,7 @@ function CalendarScreen({ wide = false, onCreate }) {
       })}
       {data.status === "ok" && selList.some(x => x.status === "scheduled") && onCreate && (
         <button onClick={onCreate} style={{
-          width: "100%", marginTop: 14, border: "none", borderRadius: 10, padding: "12px 0", cursor: "pointer", font: "inherit",
+          width: "100%", marginTop: 14, border: "none", borderRadius: 10, padding: "12px 0", cursor: "pointer", fontFamily: "inherit",
           background: "var(--accent)", color: "var(--on-accent)", fontWeight: 800, fontSize: 13,
         }}>Armar quiniela con estos partidos →</button>
       )}
@@ -1584,8 +1630,111 @@ function CalendarScreen({ wide = false, onCreate }) {
   );
 }
 
+// ============================================================================
+// Unirse a una quiniela: con el link de invitación (?unirse=CODIGO) o
+// escribiendo el código. Muestra una vista previa antes de entrar.
+// ============================================================================
+const INVITE_KEY = "qa-invite";
+const readPendingInvite = () => { try { return sessionStorage.getItem(INVITE_KEY) || ""; } catch (e) { return ""; } };
+const savePendingInvite = (c) => { try { c ? sessionStorage.setItem(INVITE_KEY, c) : sessionStorage.removeItem(INVITE_KEY); } catch (e) {} };
+const cleanInviteCode = (raw) => (String(raw || "").trim().split(/[=/]/).pop() || "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+
+function JoinQuinielaModal({ initialCode = "", quinielas = [], onClose, onJoin, onOpenQuiniela }) {
+  const { dbMode } = React.useContext(AppCtx);
+  const [code, setCode] = useState(initialCode);
+  const [state, setState] = useState({ status: "idle" }); // idle | loading | preview | error | joining
+  const lookup = async (raw) => {
+    const c = cleanInviteCode(raw);
+    if (!c) { setState({ status: "error", error: "Escribe el código o pega el link de invitación." }); return; }
+    setState({ status: "loading" });
+    const r0 = await api(`/api/quinielas/join?code=${encodeURIComponent(c)}`);
+    if (r0.ok) { setState({ status: "preview", invite: r0.invite, alreadyMember: r0.alreadyMember, full: r0.full }); return; }
+    if (dbMode || r0.status === 404 || r0.status === 400) { setState({ status: "error", error: r0.error || "No encontramos esa quiniela." }); return; }
+    {
+      const local = quinielas.find(x => String(x.code || x.id).toUpperCase() === c);
+      setState(local
+        ? { status: "preview", invite: { ...local, code: c, max: local.max || 15, owner: "—" }, alreadyMember: true }
+        : { status: "preview", invite: { code: c, name: `Quiniela ${c}`, emoji: "🎟️", members: 6, max: 15, owner: "—" }, alreadyMember: false });
+    }
+  };
+  useEffect(() => { if (initialCode) lookup(initialCode); }, []); // eslint-disable-line
+
+  const join = async () => {
+    const inv = state.invite;
+    if (state.alreadyMember) {
+      const q = quinielas.find(x => x.id === inv.id || String(x.code).toUpperCase() === String(inv.code).toUpperCase());
+      onClose(); if (q) onOpenQuiniela(q);
+      return;
+    }
+    setState(s => ({ ...s, status: "joining" }));
+    const r = await onJoin(inv.code, {
+      id: Date.now(), code: inv.code, name: inv.name, emoji: inv.emoji || "🎟️", members: (inv.members || 0) + 1, max: inv.max || 15, pot: 1,
+      status: "Por comenzar", leader: "—", you: null, games: [],
+    });
+    if (r && r.error) { setState(s => ({ ...s, status: "preview", error: r.error })); return; }
+    onClose();
+  };
+
+  const inv = state.invite;
+  return (
+    <div style={{
+      position: "absolute", inset: 0, background: "#000000aa", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", display: "flex",
+      alignItems: "flex-end", zIndex: 20,
+    }} onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} style={{
+        ...GLASS, borderTopLeftRadius: 20, borderTopRightRadius: 20, width: "100%", padding: 20, borderTop: `1px solid ${COLORS.line}`,
+        display: "flex", flexDirection: "column", gap: 14,
+      }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span className="qv-head" style={{ color: COLORS.cream, fontSize: 22 }}>Unirme a una quiniela</span>
+          <button onClick={onClose} aria-label="Cerrar" style={{ background: "none", border: "none", cursor: "pointer", color: COLORS.creamDim }}><X size={20} /></button>
+        </div>
+
+        <div>
+          <div style={{ color: COLORS.creamDim, fontSize: 12, marginBottom: 8 }}>Pega el link de invitación o escribe el código que te pasaron.</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input autoFocus={!initialCode} value={code} onChange={e => { setCode(e.target.value); if (state.status !== "idle") setState({ status: "idle" }); }}
+              onKeyDown={e => e.key === "Enter" && lookup(code)} placeholder="Ej. FXZPPQ o el link completo" style={{
+                flex: 1, minWidth: 0, background: "var(--tint)", border: `1px solid ${COLORS.line}`, borderRadius: 12, padding: "12px 13px",
+                color: COLORS.cream, fontSize: 14, outline: "none", fontFamily: "var(--font-mono), monospace", letterSpacing: 1, fontFamily: "inherit",
+              }} />
+            <button onClick={() => lookup(code)} disabled={!code.trim() || state.status === "loading"} style={{
+              border: "none", borderRadius: 12, padding: "0 18px", fontWeight: 800, fontSize: 13, fontFamily: "inherit", cursor: code.trim() ? "pointer" : "default",
+              background: code.trim() ? "var(--ink)" : "var(--tint-2)", color: code.trim() ? "var(--bg)" : COLORS.creamDim,
+            }}>{state.status === "loading" ? "Buscando…" : "Buscar"}</button>
+          </div>
+          {state.status === "error" && <div style={{ color: COLORS.live, fontSize: 12, marginTop: 8 }}>{state.error}</div>}
+        </div>
+
+        {inv && (state.status === "preview" || state.status === "joining") && (
+          <div className="qv-rise" style={{ borderRadius: 16, border: "1px solid var(--accent-line)", background: "var(--accent-soft)", padding: 16 }}>
+            <div style={{ color: "var(--accent-text)", fontSize: 10.5, fontWeight: 800, letterSpacing: 1.2, textTransform: "uppercase", marginBottom: 8 }}>
+              {state.alreadyMember ? "Ya estás en esta quiniela" : "Te invitaron a"}
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ width: 48, height: 48, borderRadius: 14, background: COLORS.bgCard, border: `1px solid ${COLORS.line}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24 }}>{inv.emoji || "🏆"}</div>
+              <div style={{ minWidth: 0 }}>
+                <div className="qv-head" style={{ color: COLORS.cream, fontSize: 24 }}>{inv.name}</div>
+                <div style={{ color: COLORS.creamDim, fontSize: 12, marginTop: 2 }}>
+                  {inv.owner && inv.owner !== "—" ? `Creada por ${inv.owner} · ` : ""}{inv.members}/{inv.max} lugares{typeof inv.games === "number" ? ` · ${inv.games} partidos` : ""}
+                </div>
+              </div>
+            </div>
+            {state.full && <div style={{ color: COLORS.live, fontSize: 12, marginTop: 10 }}>Esta quiniela ya está llena.</div>}
+            {state.error && <div style={{ color: COLORS.live, fontSize: 12, marginTop: 10 }}>{state.error}</div>}
+            <button onClick={join} disabled={state.full || state.status === "joining"} style={{
+              width: "100%", marginTop: 14, border: "none", borderRadius: 12, padding: "14px 0", fontFamily: "inherit", fontWeight: 800, fontSize: 14,
+              cursor: state.full ? "default" : "pointer", background: state.full ? "var(--tint-2)" : "var(--accent)", color: state.full ? COLORS.creamDim : "var(--on-accent)",
+            }}>{state.status === "joining" ? "Entrando…" : state.alreadyMember ? "Abrir quiniela →" : "Unirme a la quiniela →"}</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function QuinielasScreen({ quinielas, onOpenQuiniela, onCreate, onJoin, wide = false, initialCode = "" }) {
-  const { openHistory, dbMode } = React.useContext(AppCtx);
+  const { openHistory, dbMode, openJoin } = React.useContext(AppCtx);
   const [filter, setFilter] = useState("all"); // all | live | soon | done
   const [query, setQuery] = useState("");
   const [showJoin, setShowJoin] = useState(!!initialCode);
@@ -1646,7 +1795,7 @@ function QuinielasScreen({ quinielas, onOpenQuiniela, onCreate, onJoin, wide = f
           <HeroStat label="En vivo" value={live.length} />
           <HeroStat label="Vas ganando" value={leading} />
           <div style={{ flex: 1 }} />
-          <button onClick={() => { setShowJoin(!showJoin); setJoinMsg(""); }} style={{
+          <button onClick={() => openJoin()} style={{
             display: "flex", alignItems: "center", gap: 6, background: "rgba(0,0,0,.28)", color: "#fff", font: "inherit",
             border: "1px solid var(--line)", borderRadius: 12, padding: "11px 16px", fontWeight: 800, fontSize: 12.5, cursor: "pointer",
           }}><Ticket size={15} /> Unirme con código</button>
@@ -1819,6 +1968,144 @@ function ReportBlockSheet({ from, onClose, onSubmit }) {
   );
 }
 
+// Editar los partidos de una quiniela (solo el creador): quitar los que aún no
+// empiezan y agregar nuevos del calendario de las 5 grandes ligas.
+function EditGamesModal({ q, games, onClose, onSaved }) {
+  const [leagues, setLeagues] = useState(CAL_LEAGUE_DEFAULT);
+  const [league, setLeague] = useState("epl");
+  const [fx, setFx] = useState({}); // { leagueId: { status, list } }
+  const [toAdd, setToAdd] = useState([]); // partidos elegidos para agregar
+  const [busy, setBusy] = useState(null);
+  const [err, setErr] = useState("");
+  const [cur, setCur] = useState(games);
+  const MAX = 20;
+
+  useEffect(() => {
+    if (fx[league]) return;
+    setFx(prev => ({ ...prev, [league]: { status: "loading", list: [] } }));
+    api(`/api/fixtures?league=${league}`).then(r => {
+      setFx(prev => ({ ...prev, [league]: r.ok ? { status: "ok", list: r.fixtures || [] } : { status: "error", list: [], error: r.error } }));
+    });
+  }, [league]); // eslint-disable-line
+
+  const isStarted = (g) => g.live || g.hs !== null && g.hs !== undefined || (g.status && g.status !== "scheduled") || (g.closesAt && new Date(g.closesAt) <= new Date());
+  const keyOf = (h, a) => `${String(h).toLowerCase()}|${String(a).toLowerCase()}`;
+  const inQuiniela = new Set(cur.map(g => keyOf(g.home, g.away)));
+  const total = cur.length + toAdd.length;
+
+  const remove = async (g) => {
+    setErr(""); setBusy(g.id);
+    const r = await api(`/api/quinielas/${q.id}/games?gameId=${g.id}`, { method: "DELETE" });
+    setBusy(null);
+    if (!r.ok) { setErr(r.error); return; }
+    setCur(r.quiniela.games); onSaved(r.quiniela, false);
+  };
+  const toggleAdd = (m) => {
+    setErr("");
+    setToAdd(prev => prev.some(x => x.id === m.id) ? prev.filter(x => x.id !== m.id) : (total >= MAX ? (setErr(`Máximo ${MAX} partidos por quiniela.`), prev) : [...prev, m]));
+  };
+  const save = async () => {
+    if (!toAdd.length) { onClose(); return; }
+    setBusy("save"); setErr("");
+    const r = await api(`/api/quinielas/${q.id}/games`, { method: "POST", body: {
+      games: toAdd.map(m => ({ home: m.home, away: m.away, league: m.league, label: m.date, kickoffAt: m.kickoffAt })),
+    } });
+    setBusy(null);
+    if (!r.ok) { setErr(r.error); return; }
+    onSaved(r.quiniela, true);
+  };
+
+  const list = (fx[league] && fx[league].list) || [];
+  return (
+    <div style={{
+      position: "absolute", inset: 0, background: "#000000aa", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", display: "flex",
+      alignItems: "flex-end", zIndex: 20,
+    }} onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} style={{
+        ...GLASS, borderTopLeftRadius: 20, borderTopRightRadius: 20, width: "100%", padding: 20, borderTop: `1px solid ${COLORS.line}`,
+        maxHeight: "88vh", display: "flex", flexDirection: "column", gap: 12, minHeight: 0,
+      }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
+          <span className="qv-head" style={{ color: COLORS.cream, fontSize: 22 }}>Editar partidos</span>
+          <button onClick={onClose} aria-label="Cerrar" style={{ background: "none", border: "none", cursor: "pointer", color: COLORS.creamDim }}><X size={20} /></button>
+        </div>
+        <div style={{ overflowY: "auto", flex: 1, minHeight: 0, display: "flex", flexDirection: "column", gap: 12 }}>
+          <div>
+            <div style={{ color: COLORS.creamDim, fontSize: 10.5, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", marginBottom: 8 }}>
+              En la quiniela ({cur.length})
+            </div>
+            {cur.map(g => {
+              const started = isStarted(g);
+              return (
+                <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", borderRadius: 10, background: COLORS.bgCard, border: `1px solid ${COLORS.line}`, marginBottom: 6 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ color: COLORS.cream, fontSize: 12.5, fontWeight: 700 }}>{g.home} vs {g.away}</div>
+                    <div style={{ color: COLORS.creamDim, fontSize: 10.5 }}>{g.league}{g.min ? ` · ${g.min}` : ""}</div>
+                  </div>
+                  {started ? (
+                    <span style={{ color: COLORS.creamDim, fontSize: 10.5, fontWeight: 700 }}>Ya empezó</span>
+                  ) : (
+                    <button onClick={() => remove(g)} disabled={busy === g.id || cur.length <= 1} title="Quitar partido" style={{
+                      display: "flex", alignItems: "center", gap: 4, background: "transparent", border: `1px solid ${COLORS.line}`, borderRadius: 8,
+                      padding: "6px 9px", color: cur.length <= 1 ? COLORS.creamDim : COLORS.live, fontSize: 11.5, fontWeight: 700, cursor: cur.length <= 1 ? "default" : "pointer", fontFamily: "inherit",
+                    }}><Trash2 size={13} /> {busy === g.id ? "…" : "Quitar"}</button>
+                  )}
+                </div>
+              );
+            })}
+            <div style={{ color: COLORS.creamDim, fontSize: 10.5, marginTop: 4 }}>Al quitar un partido también se borran los pronósticos que ya tenía.</div>
+          </div>
+
+          <div>
+            <div style={{ color: COLORS.creamDim, fontSize: 10.5, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", marginBottom: 8 }}>
+              Agregar partidos {toAdd.length ? `(${toAdd.length} nuevos)` : ""}
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+              {leagues.map(l => (
+                <button key={l.id} onClick={() => setLeague(l.id)} style={{
+                  padding: "7px 11px", borderRadius: 999, cursor: "pointer", fontFamily: "inherit", fontSize: 11.5, fontWeight: 800,
+                  border: league === l.id ? "1px solid transparent" : `1px solid ${COLORS.line}`,
+                  background: league === l.id ? "var(--accent)" : "var(--tint)", color: league === l.id ? "var(--on-accent)" : COLORS.cream,
+                }}>{l.name}</button>
+              ))}
+            </div>
+            {fx[league] && fx[league].status === "loading" && <div style={{ color: COLORS.creamDim, fontSize: 12, padding: 8 }}>Cargando partidos…</div>}
+            {fx[league] && fx[league].status === "error" && <div style={{ color: COLORS.live, fontSize: 12, padding: 8 }}>{fx[league].error}</div>}
+            {list.map(m => {
+              const already = inQuiniela.has(keyOf(m.home, m.away));
+              const on = toAdd.some(x => x.id === m.id);
+              return (
+                <button key={m.id} disabled={already} onClick={() => toggleAdd(m)} style={{
+                  width: "100%", display: "flex", alignItems: "center", gap: 10, textAlign: "left", padding: "9px 12px", borderRadius: 10, marginBottom: 6,
+                  cursor: already ? "default" : "pointer", fontFamily: "inherit", opacity: already ? 0.5 : 1,
+                  background: on ? "var(--accent-soft)" : COLORS.bgCard, border: `1px solid ${on ? "var(--accent-line)" : COLORS.line}`,
+                }}>
+                  <span style={{
+                    width: 18, height: 18, borderRadius: 5, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
+                    background: on || already ? "var(--accent)" : "transparent", border: on || already ? "none" : `1.5px solid ${COLORS.creamDim}`,
+                  }}>{(on || already) && <Check size={12} color="var(--on-accent)" strokeWidth={3} />}</span>
+                  <span style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{ display: "block", color: COLORS.cream, fontSize: 12.5, fontWeight: 700 }}>{m.home} vs {m.away}</span>
+                    <span style={{ display: "block", color: COLORS.creamDim, fontSize: 10.5 }}>{already ? "Ya está en la quiniela" : m.date}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        {err && <div style={{ color: COLORS.live, fontSize: 12, flexShrink: 0 }}>{err}</div>}
+        <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+          <button onClick={onClose} style={{ padding: "13px 16px", borderRadius: 12, background: "transparent", border: `1px solid ${COLORS.line}`, color: COLORS.creamDim, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>Cerrar</button>
+          <button onClick={save} disabled={busy === "save"} style={{
+            flex: 1, border: "none", borderRadius: 12, padding: "13px 0", fontWeight: 800, fontSize: 13, cursor: "pointer", fontFamily: "inherit",
+            background: toAdd.length ? "var(--accent)" : "var(--tint-2)", color: toAdd.length ? "var(--on-accent)" : COLORS.cream,
+          }}>{busy === "save" ? "Guardando…" : toAdd.length ? `Agregar ${toAdd.length} partido${toAdd.length === 1 ? "" : "s"} · ${total}/${MAX}` : "Listo"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function QuinielaDetail({ q, onBack, onChanged }) {
   const isDb = !!q.db;
   const [tab, setTab] = useState("marcador");
@@ -1830,6 +2117,7 @@ function QuinielaDetail({ q, onBack, onChanged }) {
   const [savingPick, setSavingPick] = useState(null);
   const [showInvite, setShowInvite] = useState(false);
   const [showManage, setShowManage] = useState(false);
+  const [showEditGames, setShowEditGames] = useState(false);
   const [showReport, setShowReport] = useState(null); // { from } | null
   const [picks, setPicks] = useState({}); // { gameId: { h, a, saved } }
   const liveGames = useLiveScores(q.games); // marcador en vivo vía API-Football cuando hay key configurada
@@ -1966,6 +2254,14 @@ function QuinielaDetail({ q, onBack, onChanged }) {
           <div style={{ color: COLORS.creamDim, fontSize: 11, marginBottom: 14 }}>
             Puedes editar tu pronóstico hasta el silbatazo inicial de cada partido.
           </div>
+          <PointsGuide />
+          {isDb && qq.isOwner && (
+            <button onClick={() => setShowEditGames(true)} style={{
+              width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 12, padding: "11px 0",
+              borderRadius: 12, cursor: "pointer", font: "inherit", fontWeight: 800, fontSize: 12.5,
+              background: "var(--tint)", border: `1px dashed ${COLORS.line}`, color: COLORS.cream,
+            }}><Settings size={15} /> Editar partidos (agregar o quitar)</button>
+          )}
           {games.map(g => {
             const started = g.live || g.hs !== null || (g.status && g.status !== "scheduled") || (g.closesAt && new Date(g.closesAt) <= new Date());
             const pick = picks[g.id] || { h: 0, a: 0, saved: false };
@@ -2024,6 +2320,25 @@ function QuinielaDetail({ q, onBack, onChanged }) {
                   )}
                 </div>
 
+                {started && (() => {
+                  const has = pick.saved;
+                  const done = g.hs !== null && g.hs !== undefined && g.as !== null && g.as !== undefined;
+                  const pts = !has || !done ? null
+                    : (pick.h === g.hs && pick.a === g.as) ? 5
+                    : (Math.sign(pick.h - pick.a) === Math.sign(g.hs - g.as)) ? 3 : 0;
+                  return (
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10, paddingTop: 8, borderTop: `1px solid ${COLORS.line}` }}>
+                      <span style={{ color: COLORS.creamDim, fontSize: 11 }}>{has ? `Tu pronóstico: ${pick.h}-${pick.a}` : "No registraste pronóstico"}</span>
+                      {pts !== null && (
+                        <span style={{
+                          fontSize: 11, fontWeight: 800, padding: "3px 8px", borderRadius: 6,
+                          background: pts === 5 ? "var(--accent)" : pts === 3 ? "var(--ink)" : "var(--tint-2)",
+                          color: pts === 5 ? "var(--on-accent)" : pts === 3 ? "var(--bg)" : COLORS.creamDim,
+                        }}>+{pts} pts</span>
+                      )}
+                    </div>
+                  );
+                })()}
                 {pickErr[g.id] && <div style={{ color: COLORS.live, fontSize: 11, marginTop: 8 }}>{pickErr[g.id]}</div>}
                 {!started && !pick.saved && (
                   <button onClick={() => savePick(g.id)} disabled={savingPick === g.id} style={{
@@ -2040,6 +2355,13 @@ function QuinielaDetail({ q, onBack, onChanged }) {
       {tab === "partidos" && (
         <div style={{ padding: 16, overflowY: "auto", flex: 1 }}>
           <div style={{ color: COLORS.creamDim, fontSize: 11, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Partidos de la quiniela</div>
+          {isDb && qq.isOwner && (
+            <button onClick={() => setShowEditGames(true)} style={{
+              width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 12, padding: "11px 0",
+              borderRadius: 12, cursor: "pointer", font: "inherit", fontWeight: 800, fontSize: 12.5,
+              background: "var(--tint)", border: `1px dashed ${COLORS.line}`, color: COLORS.cream,
+            }}><Settings size={15} /> Editar partidos (agregar o quitar)</button>
+          )}
           {games.map(g => (
             <div key={g.id} style={{
               background: COLORS.bgCard, border: `1px solid ${COLORS.line}`, borderRadius: 12,
@@ -2118,6 +2440,13 @@ function QuinielaDetail({ q, onBack, onChanged }) {
         </>
       )}
       {showInvite && <InviteFriendsScreen q={qq} onClose={() => setShowInvite(false)} />}
+      {showEditGames && (
+        <EditGamesModal q={qq} games={games} onClose={() => setShowEditGames(false)} onSaved={(nq, close) => {
+          setDetail(d => (d ? { ...d, quiniela: nq } : d));
+          if (onChanged) onChanged();
+          if (close) setShowEditGames(false);
+        }} />
+      )}
       {showManage && (
         <ManageMembersScreen
           q={qq}
@@ -3282,6 +3611,19 @@ function SportsRainBackdrop({ count = 56 }) {
 
 function LoginScreen({ wide = false }) {
   const { openLegal } = React.useContext(AppCtx);
+  const [pendingInvite, setPendingInvite] = useState("");
+  useEffect(() => {
+    const fromUrl = new URLSearchParams(window.location.search).get("unirse");
+    setPendingInvite(fromUrl ? cleanInviteCode(fromUrl) : readPendingInvite());
+  }, []);
+  const inviteBanner = pendingInvite ? (
+    <div style={{ display: "flex", gap: 10, alignItems: "center", padding: "12px 14px", borderRadius: 12, marginBottom: 16, background: "var(--accent-soft)", border: "1px solid var(--accent-line)" }}>
+      <Ticket size={18} color="var(--accent-text)" style={{ flexShrink: 0 }} />
+      <div style={{ color: COLORS.cream, fontSize: 12.5, lineHeight: 1.4 }}>
+        <b>Te invitaron a una quiniela</b> (código {pendingInvite}). Inicia sesión o crea tu cuenta y entras directo.
+      </div>
+    </div>
+  ) : null;
   const [showForgot, setShowForgot] = useState(false);
   const [mode, setMode] = useState("login"); // login | signup
   const [name, setName] = useState("");
@@ -3341,6 +3683,7 @@ function LoginScreen({ wide = false }) {
   );
   const formBlock = (
     <>
+        {inviteBanner}
         <button onClick={() => signIn("facebook")} style={{
           width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
           background: "#1877F2", border: "none", borderRadius: 12, padding: "13px 0",
@@ -3880,8 +4223,21 @@ function InviteFriendsScreen({ q, onClose }) {
             width: "100%", background: copied ? COLORS.teal : COLORS.gold, border: "none", borderRadius: 12,
             padding: "13px 0", color: copied ? COLORS.cream : COLORS.bg, fontWeight: 800, fontSize: 14, cursor: "pointer",
           }}>{copied ? "¡Copiado!" : "Copiar link"}</button>
-          <div style={{ color: COLORS.creamDim, fontSize: 11, textAlign: "center", marginTop: 10 }}>
-            Cualquiera que entre desde este link se une directo al grupo, hasta llenar los {q ? q.max : 15} lugares.
+          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+            <a href={`https://wa.me/?text=${encodeURIComponent(`¡Únete a mi quiniela "${q ? q.name : "Quinielapp"}" en Quinielapp! ${link}`)}`} target="_blank" rel="noopener noreferrer" style={{
+              flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, textDecoration: "none",
+              background: "#25D366", color: "#0A0A0A", borderRadius: 12, padding: "12px 0", fontWeight: 800, fontSize: 13,
+            }}><MessageCircle size={16} /> Enviar por WhatsApp</a>
+            {typeof navigator !== "undefined" && navigator.share && (
+              <button onClick={() => navigator.share({ title: "Quinielapp", text: `Únete a mi quiniela "${q ? q.name : ""}"`, url: link }).catch(() => {})} style={{
+                flex: 1, background: "var(--tint)", border: `1px solid ${COLORS.line}`, borderRadius: 12, padding: "12px 0",
+                color: COLORS.cream, fontWeight: 800, fontSize: 13, cursor: "pointer", font: "inherit",
+              }}>Compartir…</button>
+            )}
+          </div>
+          <div style={{ color: COLORS.creamDim, fontSize: 11, textAlign: "center", marginTop: 12, lineHeight: 1.5 }}>
+            Quien abra este link ve la invitación y entra con un toque (si no tiene cuenta, primero se registra).
+            También puede escribir el código <b style={{ color: COLORS.cream, fontFamily: "var(--font-mono), monospace", letterSpacing: 1 }}>{q ? (q.code || q.id) : ""}</b> en "Unirme a una quiniela". Hasta {q ? q.max : 15} lugares.
           </div>
         </div>
       )}
@@ -3929,7 +4285,7 @@ function useIsDesktop(breakpoint = 900) {
 }
 
 function SidebarNav({ tab, setTab }) {
-  const { userName, me, globalData } = React.useContext(AppCtx);
+  const { userName, me, globalData, openJoin } = React.useContext(AppCtx);
   const items = [
     { id: "home", icon: HomeIcon, label: "Inicio", sub: "Tu tablero", c: 0 },
     { id: "quinielas", icon: Trophy, label: "Quinielas", sub: "Tus grupos", c: 2 },
@@ -3985,6 +4341,16 @@ function SidebarNav({ tab, setTab }) {
             </button>
           );
         })}
+        <button onClick={() => openJoin()} style={{
+          display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", borderRadius: 14, cursor: "pointer", font: "inherit", textAlign: "left",
+          background: "transparent", border: `1px dashed ${COLORS.line}`, marginTop: 4,
+        }}>
+          <span style={{ width: 34, height: 34, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--accent-soft)" }}><Ticket size={16} color="var(--accent-text)" /></span>
+          <span>
+            <span style={{ display: "block", color: COLORS.cream, fontWeight: 700, fontSize: 13.5 }}>Unirme a una quiniela</span>
+            <span style={{ display: "block", color: COLORS.creamDim, fontSize: 10.5, marginTop: 1 }}>Con código o link</span>
+          </span>
+        </button>
       </div>
 
       <Label>Quiniela Global</Label>
@@ -4189,11 +4555,22 @@ export default function MiQuinielaApp() {
 
   // Link de invitación (?unirse=CODIGO): al entrar, manda a la pestaña de
   // Quinielas con el código ya escrito en "Unirme con código".
+  // Se guarda en sessionStorage para no perderlo si primero tiene que iniciar
+  // sesión o crear cuenta (incluso con Google/Facebook) y se limpia la URL.
   useEffect(() => {
     if (typeof window === "undefined") return;
     const c = new URLSearchParams(window.location.search).get("unirse");
-    if (c) { setJoinCode(c); setTab("quinielas"); }
+    if (c) {
+      savePendingInvite(cleanInviteCode(c));
+      try { window.history.replaceState(null, "", window.location.pathname); } catch (e) {}
+    }
   }, []);
+  const [showJoin, setShowJoin] = useState(null); // { code } | null
+  useEffect(() => {
+    if (authStep !== "app") return;
+    const c = readPendingInvite();
+    if (c) { savePendingInvite(""); setTab("quinielas"); setShowJoin({ code: c }); }
+  }, [authStep]);
 
   const addQuiniela = (q) => setQuinielas(prev => [{ status: "Por comenzar", leader: "—", you: null, pot: q.members || 1, ...q }, ...(prev || []).filter(x => x.id !== q.id)]);
 
@@ -4242,6 +4619,7 @@ export default function MiQuinielaApp() {
     openHistory: () => setShowHistory(true),
     openNotifications: () => setShowNotifications(true),
     openCreate: () => setShowCreate(true),
+    openJoin: () => setShowJoin({ code: "" }),
     unreadCount,
     dbMode, me, globalData, toast,
     submitGlobal: async (picks) => {
@@ -4256,10 +4634,10 @@ export default function MiQuinielaApp() {
       return r;
     },
   };
-  const anyModal = showCreate || !!showInviteAfterCreate || showPlan || showNotifications || showHistory ||
+  const anyModal = !!showJoin || showCreate || !!showInviteAfterCreate || showPlan || showNotifications || showHistory ||
     showAdvertise || showSettings || showFriends || !!legal;
   const closeAll = () => {
-    setShowCreate(false); setShowInviteAfterCreate(null); setShowPlan(false); closeNotifications();
+    setShowJoin(null); setShowCreate(false); setShowInviteAfterCreate(null); setShowPlan(false); closeNotifications();
     setShowHistory(false); setShowAdvertise(false); setShowSettings(false); setShowFriends(false); setLegal(null);
   };
   const isDesktop = useIsDesktop();
@@ -4294,11 +4672,20 @@ export default function MiQuinielaApp() {
   };
   const quinielasProps = {
     quinielas, onOpenQuiniela: setOpenQuiniela, onCreate: () => setShowCreate(true),
-    onJoin: joinQuiniela, initialCode: joinCode,
+    onJoin: joinQuiniela,
   };
 
   const modals = (
     <>
+      {showJoin && (
+        <JoinQuinielaModal
+          initialCode={showJoin.code}
+          quinielas={quinielas || []}
+          onClose={() => setShowJoin(null)}
+          onJoin={joinQuiniela}
+          onOpenQuiniela={(q) => setOpenQuiniela(q)}
+        />
+      )}
       {showCreate && (
         <CreateQuinielaModal
           onClose={() => setShowCreate(false)}
