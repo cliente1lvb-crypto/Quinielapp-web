@@ -1,6 +1,7 @@
 import { ok, fail } from "../../../../lib/me";
 import { syncScores } from "../../../../lib/football";
 import { syncCalendarScores } from "../../../../lib/calendar";
+import { runPushJobs } from "../../../../lib/push";
 
 export const dynamic = "force-dynamic";
 
@@ -18,5 +19,8 @@ export async function GET(req) {
   if (new Date().getUTCMinutes() < 2 || new URL(req.url).searchParams.get("force")) {
     try { calendar = await syncCalendarScores(); } catch (e) { calendar = { error: String(e.message || e) }; }
   }
-  return ok({ result: r, calendar });
+  // Recordatorios antes de cada partido y avisos de resultado final.
+  let push;
+  try { push = await runPushJobs(); } catch (e) { push = { error: String(e.message || e) }; }
+  return ok({ result: r, calendar, push });
 }

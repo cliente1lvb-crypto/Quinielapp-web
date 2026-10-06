@@ -1,0 +1,21 @@
+{
+  "name": "Quinielapp",
+  "short_name": "Quinielapp",
+  "description": "Quinielas deportivas con amigos, ranking global y torneos.",
+  "lang": "es-MX",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0A0A0A",
+  "theme_color": "#0A0A0A",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Mis quinielas", "url": "/?tab=quinielas" },
+    { "name": "Calendario", "url": "/?tab=calendar" }
+  ]
+}

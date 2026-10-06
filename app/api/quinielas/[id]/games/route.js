@@ -32,7 +32,7 @@ export async function POST(req, { params }) {
     let added = 0;
     for (const g of games) {
       const kickoff = g.kickoffAt && !isNaN(Date.parse(g.kickoffAt)) ? new Date(g.kickoffAt) : null;
-      if (kickoff && kickoff <= new Date()) continue; // no se agregan partidos que ya empezaron
+      if (kickoff && kickoff.getTime() - 3 * 60 * 1000 <= Date.now()) continue; // ya cerró (3 min antes del inicio)
       if (have.has(key(g.home, g.away))) continue;
       have.add(key(g.home, g.away));
       await sql(

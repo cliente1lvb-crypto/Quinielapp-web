@@ -1,6 +1,7 @@
 import { sql } from "../../../../lib/db";
 import { requireMe, ok, fail, readJson } from "../../../../lib/me";
 import { listQuinielasFor } from "../../../../lib/quinielas";
+import { notifyUsers } from "../../../../lib/push";
 
 export const dynamic = "force-dynamic";
 
@@ -61,10 +62,10 @@ export async function POST(req) {
         [q.id, me.id]
       );
       if (q.owner_id !== me.id) {
-        await sql(
-          "insert into notifications (user_id, icon, title) values ($1, '🎉', $2)",
-          [q.owner_id, `${me.name} se unió a "${q.name}"`]
-        );
+        await notifyUsers([q.owner_id], {
+          title: `🎉 ${me.name} se unió a "${q.name}"`, body: `Ya son ${q.members + 1} en la quiniela.`,
+          inAppTitle: `${me.name} se unió a "${q.name}"`, url: `/?quiniela=${q.id}`,
+        }, { icon: "🎉" }).catch(() => {});
       }
     }
     const [shaped] = await listQuinielasFor(me.id, q.id);

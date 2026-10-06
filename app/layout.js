@@ -13,6 +13,18 @@ const interTight = Inter_Tight({ subsets: ["latin"], weight: ["400", "500", "600
 export const metadata = {
   title: "Quinielapp",
   description: "Quinielas deportivas con amigos, ranking global y torneos.",
+  manifest: "/manifest.webmanifest",
+  applicationName: "Quinielapp",
+  appleWebApp: { capable: true, title: "Quinielapp", statusBarStyle: "black-translucent" },
+  icons: { apple: "/apple-touch-icon.png" },
+  formatDetection: { telephone: false },
+};
+
+export const viewport = {
+  themeColor: "#0A0A0A",
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 // Paleta: negro/blanco con un único acento verde. Modo oscuro y claro.
@@ -39,6 +51,7 @@ body { margin: 0; padding: 0; font-family: var(--font-display), system-ui, sans-
 /* En escritorio las hojas inferiores (crear quiniela, etc.) llenan la ventana modal en vez de dejar un hueco arriba. */
 .qv-desk-modal > div[style*="align-items: flex-end"] { align-items: stretch !important; background: transparent !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
 .qv-desk-modal > div[style*="align-items: flex-end"] > div { max-height: none !important; border-radius: 0 !important; border-top: none !important; }
+.qv-sidebar > * { flex-shrink: 0; }
 .qv-head { font-family: var(--font-head), Impact, sans-serif !important; font-weight: 400 !important; text-transform: uppercase; letter-spacing: .01em !important; line-height: 1.02 !important; }
 `;
 

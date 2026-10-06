@@ -549,6 +549,11 @@ function HeroStat({ label, value }) {
   );
 }
 
+// Los pronósticos se cierran 3 minutos antes del inicio de cada partido
+// (el servidor aplica la misma regla en /api/quinielas/:id/predictions).
+const PICK_LOCK_MS = 3 * 60 * 1000;
+const pickClosesAt = (g) => (g && g.closesAt && !isNaN(Date.parse(g.closesAt)) ? Date.parse(g.closesAt) - PICK_LOCK_MS : null);
+
 // Cómo se gana: 5 / 3 / 0 con ejemplos (pestaña Pronósticos).
 function PointsGuide() {
   const rows = [
@@ -577,7 +582,7 @@ function PointsGuide() {
         ))}
       </div>
       <div style={{ color: COLORS.creamDim, fontSize: 10.5, marginTop: 10, lineHeight: 1.4 }}>
-        Gana quien sume más puntos al terminar todos los partidos. Si no registras pronóstico de un partido, ese partido vale 0.
+        Gana quien sume más puntos al terminar todos los partidos. Los pronósticos se cierran 3 minutos antes de cada partido; si no registras el tuyo, ese partido vale 0.
       </div>
     </div>
   );
@@ -1312,6 +1317,8 @@ function HomeScreen({ quinielas = QUINIELAS, onOpenQuiniela, onCreate, fromFaceb
         </div>
       </div>
 
+      <PushPromptBanner />
+
       <LiveTicker items={tickerItems} />
 
       {fromFacebook && (
@@ -1733,6 +1740,172 @@ function JoinQuinielaModal({ initialCode = "", quinielas = [], onClose, onJoin, 
   );
 }
 
+// ============================================================================
+// Notificaciones push + instalar como app (PWA)
+// ============================================================================
+function urlB64ToUint8Array(b64) {
+  const pad = "=".repeat((4 - (b64.length % 4)) % 4);
+  const raw = atob((b64 + pad).replace(/-/g, "+").replace(/_/g, "/"));
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+const isIOS = () => typeof navigator !== "undefined" && /iphone|ipad|ipod/i.test(navigator.userAgent);
+const isStandalone = () => typeof window !== "undefined" && (window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true);
+const pushSupported = () => typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+
+async function getSWReg() {
+  if (!("serviceWorker" in navigator)) return null;
+  return (await navigator.serviceWorker.getRegistration("/")) || navigator.serviceWorker.register("/sw.js", { scope: "/" });
+}
+
+// Estado y acciones de las notificaciones de este navegador.
+function usePush() {
+  const [st, setSt] = useState({ status: "checking" }); // checking | unsupported | ios-install | off-server | blocked | off | on
+  const [busy, setBusy] = useState(false);
+  const refresh = React.useCallback(async () => {
+    if (!pushSupported()) { setSt({ status: isIOS() && !isStandalone() ? "ios-install" : "unsupported" }); return; }
+    const r = await api("/api/push");
+    if (!r.ok || !r.enabled) { setSt({ status: "off-server" }); return; }
+    if (Notification.permission === "denied") { setSt({ status: "blocked", key: r.publicKey }); return; }
+    const reg = await getSWReg();
+    const sub = reg && (await reg.pushManager.getSubscription());
+    setSt({ status: sub && Notification.permission === "granted" ? "on" : "off", key: r.publicKey });
+  }, []);
+  useEffect(() => { refresh(); }, [refresh]);
+
+  const enable = async () => {
+    setBusy(true);
+    try {
+      const perm = await Notification.requestPermission();
+      if (perm !== "granted") { await refresh(); return { error: perm === "denied" ? "Bloqueaste las notificaciones. Actívalas desde la configuración del navegador." : "No diste permiso." }; }
+      const reg = await getSWReg();
+      await navigator.serviceWorker.ready;
+      let sub = await reg.pushManager.getSubscription();
+      if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlB64ToUint8Array(st.key) });
+      const r = await api("/api/push", { method: "POST", body: { subscription: sub.toJSON() } });
+      await refresh();
+      return r.ok ? { ok: true } : { error: r.error };
+    } catch (e) {
+      await refresh();
+      return { error: "No pudimos activar las notificaciones en este navegador." };
+    } finally { setBusy(false); }
+  };
+  const disable = async () => {
+    setBusy(true);
+    try {
+      const reg = await getSWReg();
+      const sub = reg && (await reg.pushManager.getSubscription());
+      if (sub) { await api("/api/push", { method: "DELETE", body: { endpoint: sub.endpoint } }); await sub.unsubscribe(); }
+    } catch (e) {}
+    await refresh(); setBusy(false);
+  };
+  const test = async () => { setBusy(true); const r = await api("/api/push/test", { method: "POST" }); setBusy(false); return r; };
+  return { ...st, busy, enable, disable, test, refresh };
+}
+
+// Botón "Instalar app" (Android/Chrome/Edge). En iPhone se explica cómo hacerlo.
+function useInstallPrompt() {
+  const [evt, setEvt] = useState(null);
+  const [installed, setInstalled] = useState(false);
+  useEffect(() => {
+    setInstalled(isStandalone());
+    if (window.__qaInstallEvt) setEvt(window.__qaInstallEvt);
+    const h = (e) => { e.preventDefault(); window.__qaInstallEvt = e; setEvt(e); };
+    const done = () => { setInstalled(true); setEvt(null); };
+    window.addEventListener("beforeinstallprompt", h);
+    window.addEventListener("appinstalled", done);
+    return () => { window.removeEventListener("beforeinstallprompt", h); window.removeEventListener("appinstalled", done); };
+  }, []);
+  const install = async () => { if (!evt) return; evt.prompt(); try { await evt.userChoice; } catch (e) {} setEvt(null); window.__qaInstallEvt = null; };
+  return { canInstall: !!evt, installed, install };
+}
+
+// Tarjeta en Ajustes.
+function NotificationsSettings() {
+  const push = usePush();
+  const inst = useInstallPrompt();
+  const [msg, setMsg] = useState(null);
+  const box = { background: COLORS.bgCard, border: `1px solid ${COLORS.line}`, borderRadius: 12, padding: "14px", marginBottom: 8 };
+  const btn = (primary) => ({
+    border: primary ? "none" : `1px solid ${COLORS.line}`, borderRadius: 10, padding: "9px 14px", cursor: "pointer", fontFamily: "inherit",
+    fontWeight: 800, fontSize: 12.5, background: primary ? "var(--accent)" : "var(--tint)", color: primary ? "var(--on-accent)" : COLORS.cream,
+  });
+  const labels = {
+    checking: "Revisando…", unsupported: "Este navegador no admite notificaciones.",
+    "ios-install": "En iPhone primero agrega Quinielapp a tu pantalla de inicio (abajo te decimos cómo) y ábrela desde ahí.",
+    "off-server": "Las notificaciones todavía no están configuradas en el servidor.",
+    blocked: "Las bloqueaste en este navegador. Actívalas en la configuración del sitio (candado junto a la dirección).",
+    off: "Desactivadas en este dispositivo.", on: "Activadas en este dispositivo ✓",
+  };
+  return (
+    <>
+      <div style={box}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+          <Bell size={16} color="var(--accent-text)" />
+          <span style={{ color: COLORS.cream, fontWeight: 800, fontSize: 13.5, flex: 1 }}>Notificaciones push</span>
+        </div>
+        <div style={{ color: push.status === "on" ? "var(--accent-text)" : COLORS.creamDim, fontSize: 12, lineHeight: 1.45, marginBottom: 10 }}>{labels[push.status]}</div>
+        <div style={{ color: COLORS.creamDim, fontSize: 11.5, lineHeight: 1.5, marginBottom: 10 }}>
+          Te avisamos: 1 hora antes de un partido si no has pronosticado · resultado final con tus puntos · cuando alguien se une a tu quiniela · mensajes del chat.
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {push.status === "off" && <button disabled={push.busy} onClick={async () => { const r = await push.enable(); setMsg(r.error ? { err: r.error } : { ok: "¡Listo! Te mandamos una de prueba." }); if (r.ok) push.test(); }} style={btn(true)}>{push.busy ? "Activando…" : "Activar notificaciones"}</button>}
+          {push.status === "on" && <button disabled={push.busy} onClick={async () => { const r = await push.test(); setMsg(r.ok ? { ok: "Enviada. Debe aparecer en unos segundos." } : { err: r.error }); }} style={btn(true)}>Enviar una de prueba</button>}
+          {push.status === "on" && <button disabled={push.busy} onClick={() => { push.disable(); setMsg(null); }} style={btn(false)}>Desactivar</button>}
+        </div>
+        {msg && <div style={{ color: msg.err ? COLORS.live : "var(--accent-text)", fontSize: 11.5, marginTop: 8 }}>{msg.err || msg.ok}</div>}
+      </div>
+
+      <div style={box}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+          <TicketLogo size={16} color="var(--accent-text)" />
+          <span style={{ color: COLORS.cream, fontWeight: 800, fontSize: 13.5 }}>Quinielapp en tu pantalla de inicio</span>
+        </div>
+        {inst.installed ? (
+          <div style={{ color: "var(--accent-text)", fontSize: 12 }}>Ya la estás usando como app ✓</div>
+        ) : inst.canInstall ? (
+          <>
+            <div style={{ color: COLORS.creamDim, fontSize: 12, marginBottom: 10 }}>Instálala como app: abre en pantalla completa y recibe avisos como cualquier app.</div>
+            <button onClick={inst.install} style={btn(true)}>Instalar app</button>
+          </>
+        ) : isIOS() ? (
+          <div style={{ color: COLORS.creamDim, fontSize: 12, lineHeight: 1.55 }}>En Safari toca <b style={{ color: COLORS.cream }}>Compartir</b> (el cuadro con flecha) → <b style={{ color: COLORS.cream }}>Agregar a pantalla de inicio</b>. Luego ábrela desde el ícono para activar las notificaciones.</div>
+        ) : (
+          <div style={{ color: COLORS.creamDim, fontSize: 12, lineHeight: 1.55 }}>En Chrome o Edge usa el ícono de instalar en la barra de direcciones, o el menú ⋮ → <b style={{ color: COLORS.cream }}>Instalar Quinielapp</b>.</div>
+        )}
+      </div>
+    </>
+  );
+}
+
+// Aviso en Inicio para activar notificaciones (se puede descartar).
+function PushPromptBanner() {
+  const push = usePush();
+  const [hidden, setHidden] = useState(true);
+  const [err, setErr] = useState("");
+  useEffect(() => { try { setHidden(localStorage.getItem("qa-push-dismissed") === "1"); } catch (e) { setHidden(false); } }, []);
+  if (hidden || (push.status !== "off" && push.status !== "ios-install")) return null;
+  const dismiss = () => { try { localStorage.setItem("qa-push-dismissed", "1"); } catch (e) {} setHidden(true); };
+  return (
+    <div className="qv-rise" style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", borderRadius: 14, marginBottom: 16, background: "var(--accent-soft)", border: "1px solid var(--accent-line)" }}>
+      <div style={{ width: 36, height: 36, borderRadius: 10, background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Bell size={17} color="var(--on-accent)" /></div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ color: COLORS.cream, fontWeight: 800, fontSize: 13 }}>Que no se te pase ningún partido</div>
+        <div style={{ color: COLORS.creamDim, fontSize: 11.5, marginTop: 2 }}>
+          {push.status === "ios-install" ? "En iPhone: Compartir → Agregar a pantalla de inicio, y activa los avisos desde la app." : "Activa los avisos: recordatorio antes de cada partido y resultados con tus puntos."}
+        </div>
+        {err && <div style={{ color: COLORS.live, fontSize: 11.5, marginTop: 4 }}>{err}</div>}
+      </div>
+      {push.status === "off" && (
+        <button disabled={push.busy} onClick={async () => { const r = await push.enable(); if (r.error) setErr(r.error); else push.test(); }} style={{
+          border: "none", borderRadius: 10, padding: "9px 14px", cursor: "pointer", fontFamily: "inherit", fontWeight: 800, fontSize: 12.5,
+          background: "var(--accent)", color: "var(--on-accent)", flexShrink: 0,
+        }}>{push.busy ? "…" : "Activar"}</button>
+      )}
+      <button onClick={dismiss} aria-label="Ahora no" style={{ background: "none", border: "none", cursor: "pointer", color: COLORS.creamDim, flexShrink: 0 }}><X size={16} /></button>
+    </div>
+  );
+}
+
 function QuinielasScreen({ quinielas, onOpenQuiniela, onCreate, onJoin, wide = false, initialCode = "" }) {
   const { openHistory, dbMode, openJoin } = React.useContext(AppCtx);
   const [filter, setFilter] = useState("all"); // all | live | soon | done
@@ -2108,7 +2281,7 @@ function EditGamesModal({ q, games, onClose, onSaved }) {
 
 function QuinielaDetail({ q, onBack, onChanged }) {
   const isDb = !!q.db;
-  const [tab, setTab] = useState("marcador");
+  const [tab, setTab] = useState(q._tab || "marcador");
   const [msg, setMsg] = useState("");
   const [chat, setChat] = useState(isDb ? [] : CHAT);
   const [detail, setDetail] = useState(null);
@@ -2118,6 +2291,9 @@ function QuinielaDetail({ q, onBack, onChanged }) {
   const [showInvite, setShowInvite] = useState(false);
   const [showManage, setShowManage] = useState(false);
   const [showEditGames, setShowEditGames] = useState(false);
+  // Re-dibuja cada 15 s para que el "Cierra en X min" y el cierre se actualicen solos.
+  const [, setTick] = useState(0);
+  useEffect(() => { const t = setInterval(() => setTick(x => x + 1), 15000); return () => clearInterval(t); }, []);
   const [showReport, setShowReport] = useState(null); // { from } | null
   const [picks, setPicks] = useState({}); // { gameId: { h, a, saved } }
   const liveGames = useLiveScores(q.games); // marcador en vivo vía API-Football cuando hay key configurada
@@ -2252,7 +2428,7 @@ function QuinielaDetail({ q, onBack, onChanged }) {
         <div style={{ padding: 16, overflowY: "auto", flex: 1 }}>
           <div style={{ color: COLORS.creamDim, fontSize: 11, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Registra tu marcador</div>
           <div style={{ color: COLORS.creamDim, fontSize: 11, marginBottom: 14 }}>
-            Puedes editar tu pronóstico hasta el silbatazo inicial de cada partido.
+            Puedes registrar o cambiar tu pronóstico hasta <b style={{ color: COLORS.cream }}>3 minutos antes</b> de que empiece cada partido.
           </div>
           <PointsGuide />
           {isDb && qq.isOwner && (
@@ -2263,7 +2439,10 @@ function QuinielaDetail({ q, onBack, onChanged }) {
             }}><Settings size={15} /> Editar partidos (agregar o quitar)</button>
           )}
           {games.map(g => {
-            const started = g.live || g.hs !== null || (g.status && g.status !== "scheduled") || (g.closesAt && new Date(g.closesAt) <= new Date());
+            const closeAt = pickClosesAt(g);
+            const kicked = g.live || g.hs !== null || (g.status && g.status !== "scheduled") || (g.closesAt && new Date(g.closesAt) <= new Date());
+            const started = kicked || (closeAt !== null && closeAt <= Date.now());
+            const minsLeft = closeAt !== null ? Math.ceil((closeAt - Date.now()) / 60000) : null;
             const pick = picks[g.id] || { h: 0, a: 0, saved: false };
             return (
               <div key={g.id} style={{
@@ -2274,7 +2453,11 @@ function QuinielaDetail({ q, onBack, onChanged }) {
                   <span style={{ color: COLORS.creamDim, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>{g.league}</span>
                   {started ? (
                     <span style={{ color: g.live ? COLORS.live : COLORS.creamDim, fontSize: 10, fontWeight: 800 }}>
-                      {g.live ? "● EN VIVO — cerrado" : "Cerrado"}
+                      {g.live ? "● EN VIVO — cerrado" : kicked ? "Cerrado" : "Cerrado · faltan menos de 3 min"}
+                    </span>
+                  ) : minsLeft !== null && minsLeft <= 60 ? (
+                    <span style={{ color: minsLeft <= 15 ? COLORS.live : "var(--accent-text)", fontSize: 10, fontWeight: 800 }}>
+                      {pick.saved ? "GUARDADO ✓ · " : ""}Cierra en {minsLeft} min
                     </span>
                   ) : pick.saved ? (
                     <span style={{ color: COLORS.gold, fontSize: 10, fontWeight: 800 }}>GUARDADO ✓</span>
@@ -2970,6 +3153,8 @@ function SettingsScreen({ onClose, plan, onDowngrade, onLogout, onDeleteAccount 
           <span style={{ color: COLORS.cream, fontSize: 13, fontWeight: 600, flex: 1 }}>Apariencia</span>
           <div style={{ width: 160 }}><ThemeToggle label /></div>
         </div>
+
+        <NotificationsSettings />
 
         <button onClick={() => openLegal("privacy")} style={{
           width: "100%", display: "flex", alignItems: "center", gap: 12, background: COLORS.bgCard,
@@ -4300,7 +4485,7 @@ function SidebarNav({ tab, setTab }) {
     <div style={{ color: COLORS.creamDim, fontSize: 10, fontWeight: 800, letterSpacing: 1.6, textTransform: "uppercase", padding: "0 10px", margin: "4px 0 8px", opacity: 0.8 }}>{children}</div>
   );
   return (
-    <div style={{
+    <div className="qv-sidebar" style={{
       width: 248, flexShrink: 0, borderRight: `1px solid ${COLORS.line}`,
       background: "var(--surface)", padding: "24px 14px 18px", display: "flex",
       flexDirection: "column", position: "sticky", top: 0, height: "100vh", boxSizing: "border-box", overflowY: "auto",
@@ -4566,6 +4751,26 @@ export default function MiQuinielaApp() {
     }
   }, []);
   const [showJoin, setShowJoin] = useState(null); // { code } | null
+
+  // Enlaces profundos (?quiniela=ID&tab=chat, ?tab=calendar) — vienen de las
+  // notificaciones push y de los accesos directos de la app instalada.
+  const [deepLink, setDeepLink] = useState(null);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const sp = new URLSearchParams(window.location.search);
+    if (sp.get("quiniela") || sp.get("tab")) {
+      setDeepLink({ quiniela: sp.get("quiniela"), tab: sp.get("tab") });
+      try { window.history.replaceState(null, "", window.location.pathname); } catch (e) {}
+    }
+    if (!("serviceWorker" in navigator)) return;
+    navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => {});
+    const onMsg = (e) => {
+      if (!e.data || e.data.type !== "open-url") return;
+      try { const u = new URL(e.data.url); setDeepLink({ quiniela: u.searchParams.get("quiniela"), tab: u.searchParams.get("tab") }); } catch (err) {}
+    };
+    navigator.serviceWorker.addEventListener("message", onMsg);
+    return () => navigator.serviceWorker.removeEventListener("message", onMsg);
+  }, []);
   useEffect(() => {
     if (authStep !== "app") return;
     const c = readPendingInvite();
@@ -4611,6 +4816,19 @@ export default function MiQuinielaApp() {
     }
   };
   const go = (t) => { setOpenQuiniela(null); setTab(t); };
+  // Aplica el enlace profundo cuando ya hay sesión y quinielas cargadas.
+  useEffect(() => {
+    if (!deepLink || authStep !== "app") return;
+    if (deepLink.quiniela) {
+      if (!quinielasState) return; // todavía cargando
+      const q = quinielas.find(x => String(x.id) === String(deepLink.quiniela));
+      if (q) { setTab("quinielas"); setOpenQuiniela({ ...q, _tab: deepLink.tab || undefined }); }
+      setDeepLink(null);
+      return;
+    }
+    if (["home", "quinielas", "calendar", "ranking", "profile"].includes(deepLink.tab)) { setOpenQuiniela(null); setTab(deepLink.tab); }
+    setDeepLink(null);
+  }, [deepLink, authStep, quinielasState]); // eslint-disable-line
   const ctx = {
     userName, go,
     openAdvertise: () => setShowAdvertise(true),
@@ -4770,7 +4988,7 @@ export default function MiQuinielaApp() {
                 border: `1px solid ${COLORS.line}`, borderRadius: 20, overflow: "hidden",
                 display: "flex", flexDirection: "column",
               }}>
-                <QuinielaDetail key={openQuiniela.id} q={openQuiniela} onChanged={dbMode ? refreshQuinielas : null} onBack={() => { setOpenQuiniela(null); if (dbMode) refreshQuinielas(); }} />
+                <QuinielaDetail key={openQuiniela.id + (openQuiniela._tab || "")} q={openQuiniela} onChanged={dbMode ? refreshQuinielas : null} onBack={() => { setOpenQuiniela(null); if (dbMode) refreshQuinielas(); }} />
               </div>
             </div>
           </div>
@@ -4851,7 +5069,7 @@ export default function MiQuinielaApp() {
         )}
         {authStep === "app" && (
           openQuiniela ? (
-            <QuinielaDetail key={openQuiniela.id} q={openQuiniela} onChanged={dbMode ? refreshQuinielas : null} onBack={() => { setOpenQuiniela(null); if (dbMode) refreshQuinielas(); }} />
+            <QuinielaDetail key={openQuiniela.id + (openQuiniela._tab || "")} q={openQuiniela} onChanged={dbMode ? refreshQuinielas : null} onBack={() => { setOpenQuiniela(null); if (dbMode) refreshQuinielas(); }} />
           ) : (
             <>
               {tab === "home" && <HomeScreen {...homeProps} />}
