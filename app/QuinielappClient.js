@@ -2336,18 +2336,19 @@ function CreateQuinielaModal({ onClose, onCreated, plan, onOpenPlan }) {
 
         {step === 3 && activeLeague && (
           <>
-            <div style={{ display: "flex", gap: 6, marginBottom: 10, overflowX: "auto" }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10, flexShrink: 0 }}>
               {chosenLeagues.map(l => (
                 <button key={l.id} onClick={() => setActiveLeagueId(l.id)} style={{
-                  flexShrink: 0, padding: "7px 12px", borderRadius: 999, border: "none", cursor: "pointer",
-                  background: activeLeague.id === l.id ? COLORS.gold : COLORS.bg,
-                  color: activeLeague.id === l.id ? COLORS.bg : COLORS.creamDim, fontWeight: 700, fontSize: 11.5,
-                }}>{l.country} {l.name}</button>
+                  flexShrink: 0, padding: "8px 12px", borderRadius: 999, cursor: "pointer", font: "inherit", lineHeight: 1.2,
+                  border: activeLeague.id === l.id ? "1px solid transparent" : `1px solid ${COLORS.line}`,
+                  background: activeLeague.id === l.id ? "var(--accent)" : "var(--tint)",
+                  color: activeLeague.id === l.id ? "var(--on-accent)" : COLORS.cream, fontWeight: 800, fontSize: 12,
+                }}>{l.name}{(() => { const n = selected.filter(g => g.leagueId === l.id).length; return n ? ` · ${n}` : ""; })()}</button>
               ))}
             </div>
             <div style={{
               color: selected.length >= limits.maxGames ? COLORS.live : COLORS.creamDim,
-              fontSize: 11, marginBottom: 10, fontWeight: 600,
+              fontSize: 11, marginBottom: 10, fontWeight: 600, flexShrink: 0,
             }}>
               {selected.length}/{limits.maxGames} partidos elegidos
               {selected.length >= limits.maxGames && plan === "free" && " · hazte Premium para agregar hasta 20"}
@@ -4423,7 +4424,7 @@ export default function MiQuinielaApp() {
             backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)",
             display: "flex", alignItems: "center", justifyContent: "center", padding: 24,
           }}>
-            <div onClick={e => e.stopPropagation()} style={{
+            <div className="qv-desk-modal" onClick={e => e.stopPropagation()} style={{
               position: "relative", width: "100%", maxWidth: 480, height: "min(820px, calc(100vh - 48px))",
               background: COLORS.bg, border: `1px solid ${COLORS.line}`, borderRadius: 20, overflow: "hidden",
               display: "flex", flexDirection: "column", boxShadow: "0 30px 90px rgba(0,0,0,0.6)",

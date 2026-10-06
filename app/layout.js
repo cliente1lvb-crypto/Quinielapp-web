@@ -36,6 +36,9 @@ const THEME_CSS = `
 }
 html, body { background: var(--bg); color: var(--ink); }
 body { margin: 0; padding: 0; font-family: var(--font-display), system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+/* En escritorio las hojas inferiores (crear quiniela, etc.) llenan la ventana modal en vez de dejar un hueco arriba. */
+.qv-desk-modal > div[style*="align-items: flex-end"] { align-items: stretch !important; background: transparent !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+.qv-desk-modal > div[style*="align-items: flex-end"] > div { max-height: none !important; border-radius: 0 !important; border-top: none !important; }
 .qv-head { font-family: var(--font-head), Impact, sans-serif !important; font-weight: 400 !important; text-transform: uppercase; letter-spacing: .01em !important; line-height: 1.02 !important; }
 `;
 
