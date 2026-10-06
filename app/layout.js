@@ -18,6 +18,8 @@ export const metadata = {
   appleWebApp: { capable: true, title: "Quinielapp", statusBarStyle: "black-translucent" },
   icons: { apple: "/apple-touch-icon.png" },
   formatDetection: { telephone: false },
+  // Verificación de propiedad del sitio en Google Search Console (variable en Vercel).
+  ...(process.env.GOOGLE_SITE_VERIFICATION ? { verification: { google: process.env.GOOGLE_SITE_VERIFICATION.trim() } } : {}),
 };
 
 export const viewport = {
