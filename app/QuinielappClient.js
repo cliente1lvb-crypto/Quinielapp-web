@@ -1906,6 +1906,46 @@ function PushPromptBanner() {
   );
 }
 
+// Cuentas que entraron con Google/Facebook no tienen fecha de nacimiento: antes de
+// usar la app se pide para cumplir la regla de mayoría de edad (18+).
+function CompleteProfileGate() {
+  const { me, dbMode, saveProfile } = React.useContext(AppCtx);
+  const [birthdate, setBirthdate] = useState("");
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+  if (!dbMode || !me || me.birthdate) return null;
+  const save = async () => {
+    if (!birthdate) { setErr("Escribe tu fecha de nacimiento."); return; }
+    setBusy(true); setErr("");
+    const r = await saveProfile({ birthdate });
+    setBusy(false);
+    if (!r.ok) setErr(r.error || "No pudimos guardar tu fecha.");
+  };
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,.72)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+      <div className="qv-rise" style={{ width: "100%", maxWidth: 420, borderRadius: 20, padding: 24, background: COLORS.bgCard, border: `1px solid ${COLORS.line}` }}>
+        <div className="qv-head" style={{ color: COLORS.cream, fontSize: 28, marginBottom: 6 }}>Un último paso</div>
+        <div style={{ color: COLORS.creamDim, fontSize: 13, lineHeight: 1.5, marginBottom: 18 }}>
+          Hola {String(me.name || "").split(" ")[0]}, para usar Quinielapp necesitamos confirmar que eres mayor de edad.
+        </div>
+        <div style={{ color: COLORS.creamDim, fontSize: 11, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Fecha de nacimiento</div>
+        <input type="date" value={birthdate} onChange={e => setBirthdate(e.target.value)} max={new Date().toISOString().slice(0, 10)} style={{
+          width: "100%", boxSizing: "border-box", background: "var(--tint)", border: `1px solid ${COLORS.line}`, borderRadius: 12, padding: "12px 13px",
+          color: COLORS.cream, fontSize: 14, outline: "none", fontFamily: "inherit",
+        }} />
+        {err && <div style={{ color: COLORS.live, fontSize: 12, marginTop: 8 }}>{err}</div>}
+        <button onClick={save} disabled={busy} style={{
+          width: "100%", marginTop: 16, border: "none", borderRadius: 12, padding: "14px 0", cursor: "pointer", fontFamily: "inherit",
+          background: "var(--accent)", color: "var(--on-accent)", fontWeight: 800, fontSize: 14,
+        }}>{busy ? "Guardando…" : "Continuar"}</button>
+        <button onClick={() => signOut()} style={{ width: "100%", marginTop: 10, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", color: COLORS.creamDim, fontSize: 12.5 }}>
+          Cerrar sesión
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function QuinielasScreen({ quinielas, onOpenQuiniela, onCreate, onJoin, wide = false, initialCode = "" }) {
   const { openHistory, dbMode, openJoin } = React.useContext(AppCtx);
   const [filter, setFilter] = useState("all"); // all | live | soon | done
@@ -3797,9 +3837,25 @@ function SportsRainBackdrop({ count = 56 }) {
 function LoginScreen({ wide = false }) {
   const { openLegal } = React.useContext(AppCtx);
   const [pendingInvite, setPendingInvite] = useState("");
+  const [authError, setAuthError] = useState("");
   useEffect(() => {
-    const fromUrl = new URLSearchParams(window.location.search).get("unirse");
+    const sp = new URLSearchParams(window.location.search);
+    const fromUrl = sp.get("unirse");
     setPendingInvite(fromUrl ? cleanInviteCode(fromUrl) : readPendingInvite());
+    const err = sp.get("error");
+    if (err) {
+      const MSG = {
+        OAuthSignin: "No pudimos iniciar sesión con ese proveedor. Si eres el administrador, revisa las llaves de Google/Facebook en Vercel.",
+        OAuthCallback: "El inicio de sesión se interrumpió. Intenta de nuevo.",
+        OAuthAccountNotLinked: "Ese correo ya está registrado de otra forma. Entra con tu correo y contraseña.",
+        AccessDenied: "No se pudo completar el inicio de sesión.",
+        NoEmail: "Tu cuenta no comparte un correo electrónico. Regístrate con correo y contraseña.",
+        DbError: "No pudimos crear tu cuenta en este momento. Intenta en un minuto.",
+        Configuration: "Falta configuración del servidor para iniciar sesión.",
+      };
+      setAuthError(MSG[err] || "No se pudo iniciar sesión. Intenta de nuevo.");
+      try { window.history.replaceState(null, "", window.location.pathname); } catch (e) {}
+    }
   }, []);
   const inviteBanner = pendingInvite ? (
     <div style={{ display: "flex", gap: 10, alignItems: "center", padding: "12px 14px", borderRadius: 12, marginBottom: 16, background: "var(--accent-soft)", border: "1px solid var(--accent-line)" }}>
@@ -3868,6 +3924,9 @@ function LoginScreen({ wide = false }) {
   );
   const formBlock = (
     <>
+        {authError && (
+          <div style={{ padding: "11px 13px", borderRadius: 12, marginBottom: 14, background: "var(--live-soft)", border: `1px solid ${COLORS.live}`, color: COLORS.cream, fontSize: 12.5, lineHeight: 1.4 }}>{authError}</div>
+        )}
         {inviteBanner}
         <button onClick={() => signIn("facebook")} style={{
           width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
@@ -4949,6 +5008,7 @@ export default function MiQuinielaApp() {
   if (isDesktop) {
     return (
       <AppCtx.Provider value={ctx}>
+      {authStep === "app" && <CompleteProfileGate />}
       <div style={{
         width: "100%", minHeight: "100vh", background: COLORS.bg, position: "relative",
         overflow: "hidden", fontFamily: "var(--font-display), 'Helvetica Neue', Arial, sans-serif",
@@ -5054,6 +5114,7 @@ export default function MiQuinielaApp() {
   // ---------- Teléfono: el marco angosto de siempre, sin cambios ----------
   return (
     <AppCtx.Provider value={ctx}>
+    {authStep === "app" && <CompleteProfileGate />}
     <div style={{
       width: "100%", minHeight: "100vh", display: "flex", justifyContent: "center",
       background: "var(--bg)", fontFamily: "var(--font-display), 'Helvetica Neue', Arial, sans-serif",
