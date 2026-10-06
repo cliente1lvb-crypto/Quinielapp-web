@@ -1,38 +1,55 @@
 import Providers from "./providers";
 
-import { Space_Grotesk, JetBrains_Mono } from "next/font/google";
+import { Anton, Inter_Tight, Oswald } from "next/font/google";
 
-// Space Grotesk: geométrica, angulosa, con carácter — es la que le da el aire
-// "de laboratorio tech" a toda la interfaz (títulos, botones, texto normal).
-// JetBrains Mono: monoespaciada pero mucho más pulida que Courier New — se usa
-// solo donde antes iba Courier New (marcadores, números de sorteo, aciertos).
-// Space Grotesk solo viene en 300/400/500/700 — la app pide 600/800/900 en
-// varios lados (JS los clampa al peso cargado más cercano, que es 700; se ve
-// bien igual, pero si algún texto se ve "menos grueso" de lo esperado es por
-// esto). 700 cubre 600-900 sin que el navegador sintetice un bold falso.
-const spaceGrotesk = Space_Grotesk({
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "700"],
-  variable: "--font-display",
-  display: "swap",
-});
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ["latin"],
-  weight: ["500", "700"],
-  variable: "--font-mono",
-  display: "swap",
-});
+// Identidad tipográfica "Estadio nocturno":
+// - Anton: condensada y pesada, para titulares grandes (estilo marcador / cartel deportivo).
+// - Oswald: condensada legible, para números (marcadores, cuentas regresivas, puntos).
+// - Inter Tight: texto de interfaz, limpia y compacta.
+const anton = Anton({ subsets: ["latin"], weight: ["400"], variable: "--font-head", display: "swap" });
+const oswald = Oswald({ subsets: ["latin"], weight: ["500", "600", "700"], variable: "--font-mono", display: "swap" });
+const interTight = Inter_Tight({ subsets: ["latin"], weight: ["400", "500", "600", "700", "800"], variable: "--font-display", display: "swap" });
 
 export const metadata = {
   title: "Quinielapp",
   description: "Quinielas deportivas con amigos, ranking global y torneos.",
 };
 
+// Paleta: negro/blanco con un único acento naranja. Modo oscuro y claro.
+const THEME_CSS = `
+*, *::before, *::after { box-sizing: border-box; }
+:root, :root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0A0A0A; --surface: #141414; --surface-2: #1C1C1C; --line: #262626; --line-strong: #3A3A3A;
+  --ink: #F5F5F4; --ink-dim: #8F8F8C; --tint: rgba(255,255,255,.05); --tint-2: rgba(255,255,255,.09);
+  --accent: #FF5A1F; --accent-text: #FF7A45; --accent-soft: rgba(255,90,31,.12); --accent-line: rgba(255,90,31,.45); --accent-glow: rgba(255,90,31,.28);
+  --on-accent: #0A0A0A; --chip: #EDEDEA; --live: #FF2D2D; --live-soft: rgba(255,45,45,.14);
+  --hero: #161616; --glass: rgba(20,20,20,.78); --glass-strong: rgba(20,20,20,.94);
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #F4F4F2; --surface: #FFFFFF; --surface-2: #EFEFEC; --line: #E2E2DE; --line-strong: #CFCFCA;
+  --ink: #0A0A0A; --ink-dim: #6B6B67; --tint: rgba(0,0,0,.035); --tint-2: rgba(0,0,0,.07);
+  --accent: #FF5A1F; --accent-text: #D9430F; --accent-soft: rgba(255,90,31,.10); --accent-line: rgba(255,90,31,.45); --accent-glow: rgba(255,90,31,.22);
+  --on-accent: #0A0A0A; --chip: #E6E6E2; --live: #E5191B; --live-soft: rgba(229,25,27,.10);
+  --hero: #0A0A0A; --glass: rgba(255,255,255,.82); --glass-strong: rgba(255,255,255,.95);
+}
+html, body { background: var(--bg); color: var(--ink); }
+body { margin: 0; padding: 0; font-family: var(--font-display), system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+.qv-head { font-family: var(--font-head), Impact, sans-serif !important; font-weight: 400 !important; text-transform: uppercase; letter-spacing: .01em !important; line-height: 1.02 !important; }
+`;
+
+// Se ejecuta antes de pintar para que no "parpadee" el tema equivocado.
+const NO_FLASH = `try{var t=localStorage.getItem("qa-theme");if(t!=="light"&&t!=="dark"){t=window.matchMedia("(prefers-color-scheme: light)").matches?"light":"dark"}document.documentElement.dataset.theme=t}catch(e){}`;
+
 export default function RootLayout({ children }) {
   return (
-    <html lang="es" className={`${spaceGrotesk.variable} ${jetbrainsMono.variable}`}>
-      <body style={{ margin: 0, padding: 0, background: "#050d09" }}>
-        <style>{`*, *::before, *::after { box-sizing: border-box; }`}</style>
+    <html lang="es" data-theme="dark" suppressHydrationWarning className={`${anton.variable} ${oswald.variable} ${interTight.variable}`}>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: NO_FLASH }} />
+        <style dangerouslySetInnerHTML={{ __html: THEME_CSS }} />
+      </head>
+      <body>
         <Providers>{children}</Providers>
       </body>
     </html>

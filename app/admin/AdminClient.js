@@ -6,9 +6,10 @@ import React, { useEffect, useState, useCallback } from "react";
 // /api/admin/* (protegido por ADMIN_EMAILS).
 
 const C = {
-  bg: "#0A0D0B", card: "#151916", card2: "#1C211D", line: "#2A302B",
-  green: "#2BE87A", greenSoft: "#2BE87A1f", cream: "#F2F5F2", dim: "#8C958E",
-  red: "#FF3B3B", amber: "#F5B83D", teal: "#1AA3A3",
+  // Panel de admin: siempre oscuro, con el naranja de la marca.
+  bg: "#0A0A0A", card: "#141414", card2: "#1C1C1C", line: "#262626",
+  green: "#FF5A1F", greenSoft: "#FF5A1F1f", cream: "#F5F5F4", dim: "#8F8F8C",
+  red: "#FF2D2D", amber: "#F5B83D", teal: "#A3A3A0",
 };
 const MONO = "var(--font-mono), ui-monospace, monospace";
 
