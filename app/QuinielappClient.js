@@ -1034,7 +1034,7 @@ function TeamBadge({ name, size = 30 }) {
       width: size, height: size, borderRadius: "50%", flexShrink: 0,
       background: "var(--surface-2)", border: "1px solid var(--line)",
       display: "flex", alignItems: "center", justifyContent: "center",
-    }}><Shirt size={Math.round(size * 0.48)} color={h % 3 === 0 ? "var(--accent)" : "var(--ink-dim)"} strokeWidth={1.8} /></div>
+    }}><Shirt size={Math.round(size * 0.48)} color="var(--ink-dim)" strokeWidth={1.8} /></div>
   );
 }
 
