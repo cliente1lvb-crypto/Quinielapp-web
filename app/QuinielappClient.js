@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { useSession, signIn, signOut } from "next-auth/react";
-import { Trophy, Plus, Users, MessageCircle, Home as HomeIcon, X, Send, Crown, ChevronRight, Settings, Shield, Smile, Bell, LogOut, Camera, Inbox, BarChart3, Trash2, Flag, MoreVertical, Megaphone, Mail, Search, Ticket, Check, FileText, Shirt, Globe, Target, Flame, Sun, Moon } from "lucide-react";
+import { Trophy, Plus, Users, MessageCircle, Home as HomeIcon, X, Send, Crown, ChevronRight, Settings, Shield, Smile, Bell, LogOut, Camera, Inbox, BarChart3, Trash2, Flag, MoreVertical, Megaphone, Mail, Search, Ticket, Check, FileText, Shirt, Globe, Target, Flame, Sun, Moon, CalendarDays } from "lucide-react";
 
 // ---------- Design tokens ----------
 // Estilo casa de apuestas: negro profundo, verde neón como acento "momios", rojo vivo para en vivo
@@ -453,6 +453,7 @@ function BottomNav({ tab, setTab }) {
   const items = [
     { id: "home", icon: HomeIcon, label: "Inicio" },
     { id: "quinielas", icon: Trophy, label: "Quinielas" },
+    { id: "calendar", icon: CalendarDays, label: "Calendario" },
     { id: "ranking", icon: BarChart3, label: "Ranking" },
     { id: "profile", icon: Users, label: "Perfil" },
   ];
@@ -1198,10 +1199,11 @@ function QuinielaCard({ q, onOpen, i = 0 }) {
 }
 
 // Partidos destacados: los de tus quinielas + el calendario del fin de semana.
-function featuredMatches(quinielas) {
+function featuredMatches(quinielas, real = null) {
   const mine = [];
   quinielas.forEach(q => q.games.forEach(g => { if (g.status !== "finished" && mine.length < 6) mine.push({ ...g }); }));
-  const sample = sampleLeagues().flatMap(l => l.fixtures.slice(0, 2).map(f => ({ ...f, league: l.name })));
+  // Calendario real de las 5 grandes ligas; si no carga, partidos de muestra.
+  const sample = real || sampleLeagues().flatMap(l => l.fixtures.slice(0, 2).map(f => ({ ...f, league: l.name })));
   const seen = new Set();
   return [...mine, ...sample].filter(m => {
     const k = `${m.home}|${m.away}`; if (seen.has(k)) return false; seen.add(k); return true;
@@ -1212,7 +1214,15 @@ function HomeScreen({ quinielas = QUINIELAS, onOpenQuiniela, onCreate, fromFaceb
   const { userName, go, openFriends, globalData, me } = React.useContext(AppCtx);
   const winning = quinielas.filter(q => q.you === 1).length;
   const live = quinielas.filter(q => q.status === "En vivo").length;
-  const matches = React.useMemo(() => featuredMatches(quinielas), [quinielas]);
+  const [calUpcoming, setCalUpcoming] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    api("/api/calendar?upcoming=12").then(r => {
+      if (alive && r.ok && r.matches && r.matches.length) setCalUpcoming(r.matches.map(m => ({ ...m, date: kickLabel(m.kickoffAt) })));
+    });
+    return () => { alive = false; };
+  }, []);
+  const matches = React.useMemo(() => featuredMatches(quinielas, calUpcoming), [quinielas, calUpcoming]);
   const tickerItems = matches.slice(0, 10);
   const closesAt = (globalData && globalData.draw && globalData.draw.closesAt) || nextFridayEvening();
   const drawNo = globalData && globalData.draw ? globalData.draw.id : GLOBAL_SORTEO.numero;
@@ -1312,8 +1322,8 @@ function HomeScreen({ quinielas = QUINIELAS, onOpenQuiniela, onCreate, fromFaceb
 
       {/* Partidos destacados */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-        <span className="qv-head" style={{ color: COLORS.cream, fontSize: 20 }}>Partidos del fin de semana</span>
-        <button onClick={onCreate} style={{ background: "none", border: "none", color: VIBE.cyan, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>Armar quiniela →</button>
+        <span className="qv-head" style={{ color: COLORS.cream, fontSize: 20 }}>Próximos partidos</span>
+        <button onClick={() => go("calendar")} style={{ background: "none", border: "none", color: VIBE.cyan, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>Ver calendario →</button>
       </div>
       <div className="qv-scroll" style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 8, marginBottom: 18 }}>
         {matches.map((m, i) => <MatchCard key={i} m={m} i={i} onPick={onCreate} />)}
@@ -1349,6 +1359,231 @@ function HomeScreen({ quinielas = QUINIELAS, onOpenQuiniela, onCreate, fromFaceb
 
 // Pestaña "Quinielas": todas las quinielas del usuario con filtros por estado,
 // búsqueda, crear nueva y unirse con código/link de invitación.
+// ============================================================================
+// Calendario de partidos — 5 grandes ligas (fuente abierta: openfootball).
+// Vista de mes + lista del día elegido. Horarios en la hora local del usuario.
+// ============================================================================
+const MESES_LARGO = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+const DIAS_LARGO = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+const CAL_LEAGUE_DEFAULT = [
+  { id: "epl", name: "Premier League", short: "PL" }, { id: "laliga", name: "La Liga", short: "LL" },
+  { id: "seriea", name: "Serie A", short: "SA" }, { id: "bundesliga", name: "Bundesliga", short: "BL" },
+  { id: "ligue1", name: "Ligue 1", short: "L1" },
+];
+const dayKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const hhmm = (iso) => new Date(iso).toLocaleTimeString("es-MX", { hour: "numeric", minute: "2-digit" });
+// "Sáb 18 Oct, 9:00 a.m." en hora local
+function kickLabel(iso) {
+  const d = new Date(iso);
+  return `${DIAS[d.getDay()]} ${d.getDate()} ${MESES[d.getMonth()]}, ${hhmm(iso)}`;
+}
+
+function CalendarScreen({ wide = false, onCreate }) {
+  const today = new Date();
+  const [ym, setYm] = useState({ y: today.getFullYear(), m: today.getMonth() }); // m: 0-11
+  const [data, setData] = useState({ status: "loading", matches: [], leagues: CAL_LEAGUE_DEFAULT });
+  const [on, setOn] = useState([]); // ligas filtradas ([] = todas)
+  const [sel, setSel] = useState(null); // "YYYY-MM-DD"
+
+  useEffect(() => {
+    let alive = true;
+    setData(d => ({ ...d, status: "loading" }));
+    const month = `${ym.y}-${String(ym.m + 1).padStart(2, "0")}`;
+    api(`/api/calendar?month=${month}`).then(r => {
+      if (!alive) return;
+      if (r.ok) setData({ status: "ok", matches: r.matches || [], leagues: r.leagues || CAL_LEAGUE_DEFAULT });
+      else setData({ status: "error", matches: [], leagues: CAL_LEAGUE_DEFAULT, error: r.error });
+    });
+    return () => { alive = false; };
+  }, [ym.y, ym.m]);
+
+  // Partidos del mes (en hora local), filtrados por liga y agrupados por día.
+  const byDay = React.useMemo(() => {
+    const map = {};
+    data.matches.forEach(mt => {
+      if (on.length && !on.includes(mt.leagueId)) return;
+      const d = new Date(mt.kickoffAt);
+      if (d.getFullYear() !== ym.y || d.getMonth() !== ym.m) return;
+      (map[dayKey(d)] = map[dayKey(d)] || []).push(mt);
+    });
+    return map;
+  }, [data.matches, on, ym.y, ym.m]);
+
+  // Día seleccionado por defecto: hoy (si es este mes) o el primer día con partidos.
+  useEffect(() => {
+    if (data.status !== "ok") return;
+    const tk = dayKey(today);
+    const inMonth = today.getFullYear() === ym.y && today.getMonth() === ym.m;
+    if (sel && sel.startsWith(`${ym.y}-${String(ym.m + 1).padStart(2, "0")}`)) return;
+    const days = Object.keys(byDay).sort();
+    const next = inMonth ? (days.find(k => k >= tk) || tk) : (days[0] || null);
+    setSel(next);
+  }, [data.status, byDay]); // eslint-disable-line
+
+  const move = (delta) => { setSel(null); setYm(({ y, m }) => { const d = new Date(y, m + delta, 1); return { y: d.getFullYear(), m: d.getMonth() }; }); };
+  const goToday = () => { setYm({ y: today.getFullYear(), m: today.getMonth() }); setSel(dayKey(today)); };
+  const toggleLeague = (id) => setOn(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+
+  // Celdas del mes empezando en lunes.
+  const first = new Date(ym.y, ym.m, 1);
+  const lead = (first.getDay() + 6) % 7;
+  const daysInMonth = new Date(ym.y, ym.m + 1, 0).getDate();
+  const cells = [...Array(lead).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => new Date(ym.y, ym.m, i + 1))];
+  while (cells.length % 7) cells.push(null);
+
+  const total = Object.values(byDay).reduce((n, l) => n + l.length, 0);
+  const selList = (sel && byDay[sel]) || [];
+  const selDate = sel ? new Date(`${sel}T12:00:00`) : null;
+  const leagueById = Object.fromEntries((data.leagues || CAL_LEAGUE_DEFAULT).map(l => [l.id, l]));
+
+  const chip = (active) => ({
+    padding: "7px 12px", borderRadius: 999, cursor: "pointer", font: "inherit", fontSize: 12, fontWeight: 800,
+    border: active ? "1px solid transparent" : `1px solid ${COLORS.line}`,
+    background: active ? "var(--accent)" : "var(--tint)", color: active ? "var(--on-accent)" : COLORS.creamDim,
+  });
+  const navBtn = {
+    width: 36, height: 36, borderRadius: 10, border: `1px solid ${COLORS.line}`, background: "var(--tint)", color: COLORS.cream,
+    cursor: "pointer", fontSize: 18, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", font: "inherit",
+  };
+
+  const grid = (
+    <div style={{ borderRadius: 18, border: `1px solid ${COLORS.line}`, background: COLORS.bgCard, padding: wide ? 16 : 10 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: wide ? 6 : 4, marginBottom: 6 }}>
+        {["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map(d => (
+          <div key={d} style={{ color: COLORS.creamDim, fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, textAlign: "center", padding: "4px 0" }}>{d}</div>
+        ))}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: wide ? 6 : 4 }}>
+        {cells.map((d, i) => {
+          if (!d) return <div key={i} />;
+          const k = dayKey(d);
+          const list = byDay[k] || [];
+          const isSel = sel === k;
+          const isToday = k === dayKey(today);
+          const leaguesHere = [...new Set(list.map(x => x.leagueId))];
+          return (
+            <button key={i} onClick={() => setSel(k)} style={{
+              position: "relative", minHeight: wide ? 86 : 52, borderRadius: 12, cursor: "pointer", font: "inherit", textAlign: "left",
+              padding: wide ? "8px 9px" : "6px 5px", display: "flex", flexDirection: "column", gap: 4,
+              background: isSel ? "var(--accent)" : list.length ? "var(--tint-2)" : "transparent",
+              border: isToday && !isSel ? "1.5px solid var(--accent)" : `1px solid ${isSel ? "transparent" : COLORS.line}`,
+              color: isSel ? "var(--on-accent)" : COLORS.cream, opacity: list.length || isToday ? 1 : 0.55,
+            }}>
+              <span style={{ fontFamily: "var(--font-mono), monospace", fontWeight: 600, fontSize: wide ? 17 : 14, lineHeight: 1 }}>{d.getDate()}</span>
+              {list.length > 0 && (wide ? (
+                <>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: isSel ? "var(--on-accent)" : COLORS.creamDim }}>{list.length} {list.length === 1 ? "partido" : "partidos"}</span>
+                  <span style={{ display: "flex", flexWrap: "wrap", gap: 3, marginTop: "auto" }}>
+                    {leaguesHere.map(id => (
+                      <span key={id} style={{
+                        fontSize: 9, fontWeight: 800, letterSpacing: 0.4, padding: "2px 5px", borderRadius: 5,
+                        background: isSel ? "rgba(0,0,0,.14)" : "var(--surface)", color: isSel ? "var(--on-accent)" : COLORS.cream,
+                        border: isSel ? "none" : `1px solid ${COLORS.line}`,
+                      }}>{(leagueById[id] || {}).short || id}</span>
+                    ))}
+                  </span>
+                </>
+              ) : (
+                <span style={{ fontSize: 10, fontWeight: 800, color: isSel ? "var(--on-accent)" : "var(--accent-text)", marginTop: "auto" }}>{list.length}</span>
+              ))}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  const dayPanel = (
+    <div style={{ borderRadius: 18, border: `1px solid ${COLORS.line}`, background: COLORS.bgCard, padding: 16 }}>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8, marginBottom: 12 }}>
+        <div className="qv-head" style={{ color: COLORS.cream, fontSize: 22 }}>
+          {selDate ? `${DIAS_LARGO[selDate.getDay()]} ${selDate.getDate()}` : "Elige un día"}
+        </div>
+        <span style={{ color: COLORS.creamDim, fontSize: 12 }}>{selList.length ? `${selList.length} ${selList.length === 1 ? "partido" : "partidos"}` : ""}</span>
+      </div>
+      {data.status === "loading" && <div style={{ color: COLORS.creamDim, fontSize: 12.5, padding: "18px 0" }}>Cargando calendario…</div>}
+      {data.status === "error" && <div style={{ color: COLORS.live, fontSize: 12.5, padding: "18px 0" }}>{data.error || "No pudimos cargar el calendario."}</div>}
+      {data.status === "ok" && !selList.length && <div style={{ color: COLORS.creamDim, fontSize: 12.5, padding: "18px 0" }}>No hay partidos este día en las ligas seleccionadas.</div>}
+      {data.status === "ok" && selList.map((mt, i) => {
+        const prevLeague = i > 0 && selList[i - 1].leagueId === mt.leagueId;
+        return (
+          <React.Fragment key={mt.id}>
+            {!prevLeague && (
+              <div style={{ color: COLORS.creamDim, fontSize: 10.5, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", margin: i ? "14px 0 6px" : "0 0 6px" }}>
+                {mt.league} · {mt.round}
+              </div>
+            )}
+            <div style={{ display: "grid", gridTemplateColumns: wide ? "58px 1fr auto 1fr" : "46px 1fr auto 1fr", alignItems: "center", gap: wide ? 8 : 6, padding: "10px 0", borderTop: prevLeague ? `1px solid ${COLORS.line}` : "none" }}>
+              <span style={{ color: COLORS.creamDim, fontSize: wide ? 11.5 : 10.5, fontFamily: "var(--font-mono), monospace" }}>{hhmm(mt.kickoffAt)}</span>
+              <span style={{ color: COLORS.cream, fontSize: wide ? 13 : 12, fontWeight: 700, textAlign: "right", minWidth: 0, lineHeight: 1.2, overflowWrap: "anywhere" }}>{mt.home}</span>
+              <span style={{
+                fontFamily: "var(--font-mono), monospace", fontWeight: 600, fontSize: 13, padding: "3px 9px", borderRadius: 7, minWidth: 48, textAlign: "center",
+                background: mt.status === "final" ? "var(--ink)" : "var(--tint-2)", color: mt.status === "final" ? "var(--bg)" : COLORS.creamDim,
+              }}>{mt.status === "final" ? `${mt.hs}-${mt.as}` : "vs"}</span>
+              <span style={{ color: COLORS.cream, fontSize: wide ? 13 : 12, fontWeight: 700, minWidth: 0, lineHeight: 1.2, overflowWrap: "anywhere" }}>{mt.away}</span>
+            </div>
+            {mt.status === "pending" && <div style={{ color: COLORS.creamDim, fontSize: 10.5, margin: "-6px 0 4px 66px" }}>Jugado · marcador por confirmar</div>}
+          </React.Fragment>
+        );
+      })}
+      {data.status === "ok" && selList.some(x => x.status === "scheduled") && onCreate && (
+        <button onClick={onCreate} style={{
+          width: "100%", marginTop: 14, border: "none", borderRadius: 10, padding: "12px 0", cursor: "pointer", font: "inherit",
+          background: "var(--accent)", color: "var(--on-accent)", fontWeight: 800, fontSize: 13,
+        }}>Armar quiniela con estos partidos →</button>
+      )}
+    </div>
+  );
+
+  return (
+    <div style={{ padding: wide ? 0 : "18px 14px 16px", overflowY: wide ? "visible" : "auto", flex: 1 }}>
+      <VibeStyles />
+      <PageHero
+        wide={wide}
+        kicker="Calendario"
+        title="Calendario de partidos"
+        subtitle="Las 5 grandes ligas de Europa, jornada por jornada. Horarios en tu hora local."
+      >
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <HeroStat label={`partidos en ${MESES_LARGO[ym.m].toLowerCase()}`} value={data.status === "ok" ? total : "–"} />
+          <HeroStat label="ligas" value={on.length || 5} />
+        </div>
+      </PageHero>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <button onClick={() => move(-1)} style={navBtn} aria-label="Mes anterior">‹</button>
+          <div className="qv-head" style={{ color: COLORS.cream, fontSize: wide ? 26 : 22, minWidth: wide ? 210 : 170, textAlign: "center" }}>{MESES_LARGO[ym.m]} {ym.y}</div>
+          <button onClick={() => move(1)} style={navBtn} aria-label="Mes siguiente">›</button>
+          <button onClick={goToday} style={{ ...chip(false), marginLeft: 4 }}>Hoy</button>
+        </div>
+        <div style={{ flex: 1 }} />
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          <button onClick={() => setOn([])} style={chip(on.length === 0)}>Todas</button>
+          {(data.leagues || CAL_LEAGUE_DEFAULT).map(l => (
+            <button key={l.id} onClick={() => toggleLeague(l.id)} style={chip(on.includes(l.id))}>{l.name}</button>
+          ))}
+        </div>
+      </div>
+
+      {wide ? (
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.55fr) minmax(320px, 1fr)", gap: 16, alignItems: "start" }}>
+          {grid}
+          <div style={{ position: "sticky", top: 0 }}>{dayPanel}</div>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {grid}
+          {dayPanel}
+        </div>
+      )}
+      <div style={{ color: COLORS.creamDim, fontSize: 10.5, marginTop: 12, lineHeight: 1.5 }}>
+        Datos abiertos de openfootball. Los marcadores finales se actualizan con algunos días de retraso; no incluye marcador en vivo.
+      </div>
+    </div>
+  );
+}
+
 function QuinielasScreen({ quinielas, onOpenQuiniela, onCreate, onJoin, wide = false, initialCode = "" }) {
   const { openHistory, dbMode } = React.useContext(AppCtx);
   const [filter, setFilter] = useState("all"); // all | live | soon | done
@@ -2069,7 +2304,7 @@ function CreateQuinielaModal({ onClose, onCreated, plan, onOpenPlan }) {
                     padding: "12px 14px", marginBottom: 8, cursor: "pointer",
                     opacity: (atCap && !isSel && !locked) ? 0.4 : 1,
                   }}>
-                    <span style={{ fontSize: 20 }}>{l.country}</span>
+                    <span style={{ minWidth: 34, height: 34, borderRadius: 9, background: "var(--tint-2)", color: COLORS.cream, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800 }}>{l.country}</span>
                     <div style={{ flex: 1 }}>
                       <div style={{ color: COLORS.cream, fontWeight: 700, fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
                         {l.name}
@@ -3697,6 +3932,7 @@ function SidebarNav({ tab, setTab }) {
   const items = [
     { id: "home", icon: HomeIcon, label: "Inicio", sub: "Tu tablero", c: 0 },
     { id: "quinielas", icon: Trophy, label: "Quinielas", sub: "Tus grupos", c: 2 },
+    { id: "calendar", icon: CalendarDays, label: "Calendario", sub: "5 grandes ligas", c: 1 },
     { id: "ranking", icon: BarChart3, label: "Ranking", sub: "Global y torneos", c: 1 },
     { id: "profile", icon: Users, label: "Perfil", sub: "Cuenta y plan", c: 3 },
   ];
@@ -4160,6 +4396,11 @@ export default function MiQuinielaApp() {
                   <QuinielasScreen {...quinielasProps} wide />
                 </div>
               )}
+              {tab === "calendar" && (
+                <div style={{ maxWidth: 1240, margin: "0 auto" }}>
+                  <CalendarScreen wide onCreate={homeProps.onCreate} />
+                </div>
+              )}
               {tab === "ranking" && (
                 <div style={{ maxWidth: 1240, margin: "0 auto", position: "relative", minHeight: "calc(100vh - 72px)" }}>
                   <RankingScreen onJoinGlobal={() => setJoinedGlobal(true)} joinedGlobal={joinedGlobal} />
@@ -4227,6 +4468,7 @@ export default function MiQuinielaApp() {
             <>
               {tab === "home" && <HomeScreen {...homeProps} />}
               {tab === "quinielas" && <QuinielasScreen {...quinielasProps} />}
+              {tab === "calendar" && <CalendarScreen onCreate={homeProps.onCreate} />}
               {tab === "ranking" && <RankingScreen onJoinGlobal={() => setJoinedGlobal(true)} joinedGlobal={joinedGlobal} />}
               {tab === "profile" && <ProfileScreen plan={plan} onOpenPlan={() => setShowPlan(true)} onOpenHistory={() => setShowHistory(true)} onOpenSettings={() => setShowSettings(true)} onOpenAdvertise={() => setShowAdvertise(true)} />}
               <BottomNav tab={tab} setTab={setTab} />

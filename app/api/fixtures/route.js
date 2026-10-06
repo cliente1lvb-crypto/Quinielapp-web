@@ -1,26 +1,37 @@
 import { requireMe, ok, fail } from "../../../lib/me";
-import { LEAGUES, hasKey, nextFixtures } from "../../../lib/football";
+import { CAL_LEAGUES, upcoming } from "../../../lib/calendar";
 
 export const dynamic = "force-dynamic";
 
-// GET /api/fixtures            → lista de ligas disponibles (no gasta cuota)
+// GET /api/fixtures            → ligas disponibles para armar quinielas
 // GET /api/fixtures?league=id  → próximos partidos reales de esa liga
-// Se pide liga por liga (solo las que el usuario elige) para no rebasar el
-// límite de consultas por minuto de API-Football; cada liga se guarda 6 h en Neon.
+// Por ahora solo las 5 grandes ligas de Europa, con el calendario abierto de
+// openfootball (gratis). Cuando se contrate el plan de API-Football se pueden
+// volver a sumar Liga MX, Champions, MLS, etc. (ver lib/football.js).
 export async function GET(req) {
   const { error } = await requireMe();
   if (error) return error;
-  if (!hasKey()) return fail("Falta API_FOOTBALL_KEY.", 503, { demo: true });
   const id = new URL(req.url).searchParams.get("league");
   if (!id) {
-    return ok({ leagues: LEAGUES.map(l => ({ id: l.id, name: l.name, country: l.country, premium: l.premium, fixtures: null })) });
+    return ok({ leagues: CAL_LEAGUES.map(l => ({ id: l.id, name: l.name, country: l.short, premium: false, fixtures: null })) });
   }
-  const league = LEAGUES.find(l => l.id === id);
+  const league = CAL_LEAGUES.find(l => l.id === id);
   if (!league) return fail("Liga no válida.", 404);
   try {
-    return ok({ league: id, fixtures: await nextFixtures(league) });
+    const list = (await upcoming([id], 21)).slice(0, 20).map(m => ({
+      ...m, date: dateLabel(m.kickoffAt),
+    }));
+    return ok({ league: id, fixtures: list });
   } catch (e) {
-    const msg = String(e.message || e);
-    return fail(/too many|per minute/i.test(msg) ? "La API está saturada en este momento; intenta en un minuto." : msg, 502);
+    return fail("No pudimos cargar los partidos. Intenta en un momento.", 502);
   }
+}
+
+const DIAS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+function dateLabel(iso) {
+  // Etiqueta en hora del centro de México (la que se guarda como texto en la quiniela).
+  const d = new Date(new Date(iso).toLocaleString("en-US", { timeZone: "America/Mexico_City" }));
+  let h = d.getHours(); const ap = h >= 12 ? "PM" : "AM"; h = h % 12 || 12;
+  return `${DIAS[d.getDay()]} ${d.getDate()} ${MESES[d.getMonth()]}, ${h}:${String(d.getMinutes()).padStart(2, "0")} ${ap}`;
 }

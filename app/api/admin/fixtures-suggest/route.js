@@ -1,29 +1,26 @@
 import { ok, fail } from "../../../../lib/me";
 import { requireAdmin } from "../../../../lib/admin";
-import { LEAGUES, BIG5, hasKey, nextFixtures } from "../../../../lib/football";
+import { CAL_LEAGUES, upcoming } from "../../../../lib/calendar";
 
 export const dynamic = "force-dynamic";
 
 // GET /api/admin/fixtures-suggest — arma el sorteo de la Quiniela Global con la
-// regla del proyecto: 2 partidos de cada una de las 5 grandes ligas. Si alguna
-// no tiene partidos (descanso), rellena con Champions, Liga MX y MLS.
+// regla del proyecto: 2 partidos de cada una de las 5 grandes ligas, tomados del
+// calendario abierto (lib/calendar.js). Si una liga está en descanso, rellena
+// con más partidos de las otras.
 export async function GET() {
   const a = await requireAdmin();
   if (a.error) return a.error;
-  if (!hasKey()) return fail("Falta API_FOOTBALL_KEY en Vercel.", 503);
-  const byId = Object.fromEntries(LEAGUES.map(l => [l.id, l]));
-  const picked = [];
-  const used = new Set();
-  const take = async (id, n) => {
-    try {
-      const fx = (await nextFixtures(byId[id])).filter(f => f.status === "scheduled" && !used.has(f.id)).slice(0, n);
-      fx.forEach(f => { used.add(f.id); picked.push({ home: f.home, away: f.away, league: byId[id].name, apiId: f.apiId, kickoffAt: f.kickoffAt, date: f.date }); });
-      return fx.length;
-    } catch { return 0; }
-  };
-  let missing = 0;
-  for (const id of BIG5) missing += 2 - (await take(id, 2));
-  for (const id of ["ucl", "ligamx", "mls"]) { if (missing <= 0) break; missing -= await take(id, missing); }
-  picked.sort((x, y) => new Date(x.kickoffAt) - new Date(y.kickoffAt));
-  return ok({ matches: picked.slice(0, 10) });
+  try {
+    const all = await upcoming(null, 14);
+    const picked = [], used = new Set();
+    for (const lg of CAL_LEAGUES) {
+      all.filter(m => m.leagueId === lg.id).slice(0, 2).forEach(m => { used.add(m.id); picked.push(m); });
+    }
+    for (const m of all) { if (picked.length >= 10) break; if (!used.has(m.id)) { used.add(m.id); picked.push(m); } }
+    picked.sort((x, y) => new Date(x.kickoffAt) - new Date(y.kickoffAt));
+    return ok({ matches: picked.slice(0, 10).map(m => ({ home: m.home, away: m.away, league: m.league, apiId: null, kickoffAt: m.kickoffAt })) });
+  } catch (e) {
+    return fail("No pudimos cargar el calendario.", 502);
+  }
 }
