@@ -7,7 +7,7 @@ export default function PublicIntro({ standalone = false }) {
   const card = { border: "1px solid var(--line)", background: "var(--surface)", borderRadius: 16, padding: 18 };
   const features = [
     ["Quinielas privadas con amigos", "Crea una quiniela, invita hasta 15 amigos con un link o código y elige partidos de las 5 grandes ligas de Europa."],
-    ["Pronostica marcadores", "Cada quien registra su marcador hasta 3 minutos antes del partido. 5 puntos por marcador exacto, 3 por acertar el resultado."],
+    ["Pronostica marcadores", "Cada quien registra su marcador hasta 30 minutos antes del partido. 5 puntos por marcador exacto, 3 por acertar el resultado."],
     ["Tabla en tiempo real y chat", "La app calcula los puntos sola, muestra quién va ganando y tiene chat para el cotorreo del grupo."],
     ["Quiniela Global y torneos", "Compite contra más gente en un sorteo semanal de 10 partidos, solo por diversión."],
   ];

@@ -5,8 +5,8 @@ import { isMember, UUID_RE } from "../../../../../lib/quinielas";
 export const dynamic = "force-dynamic";
 
 // POST /api/quinielas/:id/predictions — { gameId, home, away }
-// Solo se puede pronosticar (o cambiar) hasta 3 minutos antes de que arranque el partido.
-const LOCK_MS = 3 * 60 * 1000;
+// Solo se puede pronosticar (o cambiar) hasta 30 minutos antes de que arranque el partido.
+const LOCK_MS = 30 * 60 * 1000;
 export async function POST(req, { params }) {
   const { me, error } = await requireMe();
   if (error) return error;
@@ -25,7 +25,7 @@ export async function POST(req, { params }) {
     if (!g[0]) return fail("Ese partido no es de esta quiniela.", 404);
     if (g[0].status !== "scheduled") return fail("Este partido ya arrancó: los pronósticos están cerrados.", 409);
     if (g[0].kickoff_at && new Date(g[0].kickoff_at).getTime() - LOCK_MS <= Date.now()) {
-      return fail("Los pronósticos se cierran 3 minutos antes de que empiece el partido.", 409);
+      return fail("Los pronósticos se cierran 30 minutos antes de que empiece el partido.", 409);
     }
     await sql(
       `insert into predictions (quiniela_game_id, user_id, home_pred, away_pred)

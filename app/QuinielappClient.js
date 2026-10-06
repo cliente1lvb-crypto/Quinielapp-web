@@ -550,9 +550,9 @@ function HeroStat({ label, value }) {
   );
 }
 
-// Los pronósticos se cierran 3 minutos antes del inicio de cada partido
+// Los pronósticos se cierran 30 minutos antes del inicio de cada partido
 // (el servidor aplica la misma regla en /api/quinielas/:id/predictions).
-const PICK_LOCK_MS = 3 * 60 * 1000;
+const PICK_LOCK_MS = 30 * 60 * 1000;
 const pickClosesAt = (g) => (g && g.closesAt && !isNaN(Date.parse(g.closesAt)) ? Date.parse(g.closesAt) - PICK_LOCK_MS : null);
 
 // Cómo se gana: 5 / 3 / 0 con ejemplos (pestaña Pronósticos).
@@ -583,7 +583,7 @@ function PointsGuide() {
         ))}
       </div>
       <div style={{ color: COLORS.creamDim, fontSize: 10.5, marginTop: 10, lineHeight: 1.4 }}>
-        Gana quien sume más puntos al terminar todos los partidos. Los pronósticos se cierran 3 minutos antes de cada partido; si no registras el tuyo, ese partido vale 0.
+        Gana quien sume más puntos al terminar todos los partidos. Los pronósticos se cierran 30 minutos antes de cada partido; si no registras el tuyo, ese partido vale 0.
       </div>
     </div>
   );
@@ -1846,7 +1846,7 @@ function NotificationsSettings() {
         </div>
         <div style={{ color: push.status === "on" ? "var(--accent-text)" : COLORS.creamDim, fontSize: 12, lineHeight: 1.45, marginBottom: 10 }}>{labels[push.status]}</div>
         <div style={{ color: COLORS.creamDim, fontSize: 11.5, lineHeight: 1.5, marginBottom: 10 }}>
-          Te avisamos: 1 hora antes de un partido si no has pronosticado · resultado final con tus puntos · cuando alguien se une a tu quiniela · mensajes del chat.
+          Te avisamos: 1 hora antes de que cierren los pronósticos de un partido si no has pronosticado · resultado final con tus puntos · cuando alguien se une a tu quiniela · mensajes del chat.
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {push.status === "off" && <button disabled={push.busy} onClick={async () => { const r = await push.enable(); setMsg(r.error ? { err: r.error } : { ok: "¡Listo! Te mandamos una de prueba." }); if (r.ok) push.test(); }} style={btn(true)}>{push.busy ? "Activando…" : "Activar notificaciones"}</button>}
@@ -2202,7 +2202,7 @@ function EditGamesModal({ q, games, onClose, onSaved }) {
     });
   }, [league]); // eslint-disable-line
 
-  const isStarted = (g) => g.live || g.hs !== null && g.hs !== undefined || (g.status && g.status !== "scheduled") || (g.closesAt && new Date(g.closesAt) <= new Date());
+  const isStarted = (g) => g.live || g.hs !== null && g.hs !== undefined || (g.status && g.status !== "scheduled") || (pickClosesAt(g) !== null && pickClosesAt(g) <= Date.now());
   const keyOf = (h, a) => `${String(h).toLowerCase()}|${String(a).toLowerCase()}`;
   const inQuiniela = new Set(cur.map(g => keyOf(g.home, g.away)));
   const total = cur.length + toAdd.length;
@@ -2257,7 +2257,7 @@ function EditGamesModal({ q, games, onClose, onSaved }) {
                     <div style={{ color: COLORS.creamDim, fontSize: 10.5 }}>{g.league}{g.min ? ` · ${g.min}` : ""}</div>
                   </div>
                   {started ? (
-                    <span style={{ color: COLORS.creamDim, fontSize: 10.5, fontWeight: 700 }}>Ya empezó</span>
+                    <span style={{ color: COLORS.creamDim, fontSize: 10.5, fontWeight: 700 }}>Cerrado</span>
                   ) : (
                     <button onClick={() => remove(g)} disabled={busy === g.id || cur.length <= 1} title="Quitar partido" style={{
                       display: "flex", alignItems: "center", gap: 4, background: "transparent", border: `1px solid ${COLORS.line}`, borderRadius: 8,
@@ -2469,7 +2469,7 @@ function QuinielaDetail({ q, onBack, onChanged }) {
         <div style={{ padding: 16, overflowY: "auto", flex: 1 }}>
           <div style={{ color: COLORS.creamDim, fontSize: 11, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Registra tu marcador</div>
           <div style={{ color: COLORS.creamDim, fontSize: 11, marginBottom: 14 }}>
-            Puedes registrar o cambiar tu pronóstico hasta <b style={{ color: COLORS.cream }}>3 minutos antes</b> de que empiece cada partido.
+            Puedes registrar o cambiar tu pronóstico hasta <b style={{ color: COLORS.cream }}>30 minutos antes</b> de que empiece cada partido.
           </div>
           <PointsGuide />
           {isDb && qq.isOwner && (
@@ -2494,7 +2494,7 @@ function QuinielaDetail({ q, onBack, onChanged }) {
                   <span style={{ color: COLORS.creamDim, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>{g.league}</span>
                   {started ? (
                     <span style={{ color: g.live ? COLORS.live : COLORS.creamDim, fontSize: 10, fontWeight: 800 }}>
-                      {g.live ? "● EN VIVO — cerrado" : kicked ? "Cerrado" : "Cerrado · faltan menos de 3 min"}
+                      {g.live ? "● EN VIVO — cerrado" : kicked ? "Cerrado" : "Cerrado · faltan menos de 30 min"}
                     </span>
                   ) : minsLeft !== null && minsLeft <= 60 ? (
                     <span style={{ color: minsLeft <= 15 ? COLORS.live : "var(--accent-text)", fontSize: 10, fontWeight: 800 }}>

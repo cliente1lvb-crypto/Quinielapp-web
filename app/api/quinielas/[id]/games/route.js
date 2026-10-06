@@ -4,6 +4,7 @@ import { listQuinielasFor, UUID_RE } from "../../../../../lib/quinielas";
 
 export const dynamic = "force-dynamic";
 const MAX_GAMES = 20;
+const LOCK_MS = 30 * 60 * 1000; // los pronósticos se cierran 30 min antes del partido
 
 // Solo el creador de la quiniela puede cambiar sus partidos.
 async function ownerCheck(id, userId) {
@@ -32,7 +33,7 @@ export async function POST(req, { params }) {
     let added = 0;
     for (const g of games) {
       const kickoff = g.kickoffAt && !isNaN(Date.parse(g.kickoffAt)) ? new Date(g.kickoffAt) : null;
-      if (kickoff && kickoff.getTime() - 3 * 60 * 1000 <= Date.now()) continue; // ya cerró (3 min antes del inicio)
+      if (kickoff && kickoff.getTime() - LOCK_MS <= Date.now()) continue; // ya cerró (30 min antes del inicio)
       if (have.has(key(g.home, g.away))) continue;
       have.add(key(g.home, g.away));
       await sql(
@@ -62,8 +63,8 @@ export async function DELETE(req, { params }) {
     if (!UUID_RE.test(gameId || "")) return fail("Partido no válido.", 404);
     const g = (await sql("select status, kickoff_at from quiniela_games where id = $1 and quiniela_id = $2", [gameId, params.id]))[0];
     if (!g) return fail("Partido no encontrado.", 404);
-    if (g.status !== "scheduled" || (g.kickoff_at && new Date(g.kickoff_at) <= new Date())) {
-      return fail("Ese partido ya empezó; no se puede quitar.", 409);
+    if (g.status !== "scheduled" || (g.kickoff_at && new Date(g.kickoff_at).getTime() - LOCK_MS <= Date.now())) {
+      return fail("Los pronósticos de ese partido ya cerraron; no se puede quitar.", 409);
     }
     const count = (await sql("select count(*)::int as n from quiniela_games where quiniela_id = $1", [params.id]))[0].n;
     if (count <= 1) return fail("La quiniela debe tener al menos un partido.", 409);
