@@ -6,9 +6,9 @@ import React, { useEffect, useState, useCallback } from "react";
 // /api/admin/* (protegido por ADMIN_EMAILS).
 
 const C = {
-  // Panel de admin: siempre oscuro, con el naranja de la marca.
+  // Panel de admin: siempre oscuro, con el verde de la marca.
   bg: "#0A0A0A", card: "#141414", card2: "#1C1C1C", line: "#262626",
-  green: "#FF5A1F", greenSoft: "#FF5A1F1f", cream: "#F5F5F4", dim: "#8F8F8C",
+  green: "#22C55E", greenSoft: "#22C55E1f", cream: "#F5F5F4", dim: "#8F8F8C",
   red: "#FF2D2D", amber: "#F5B83D", teal: "#A3A3A0",
 };
 const MONO = "var(--font-mono), ui-monospace, monospace";

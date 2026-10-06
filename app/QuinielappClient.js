@@ -5,7 +5,7 @@ import { Trophy, Plus, Users, MessageCircle, Home as HomeIcon, X, Send, Crown, C
 
 // ---------- Design tokens ----------
 // Estilo casa de apuestas: negro profundo, verde neón como acento "momios", rojo vivo para en vivo
-// Identidad "Estadio nocturno": negro/blanco con un solo acento naranja.
+// Identidad "Estadio nocturno": negro/blanco con un solo acento verde.
 // Todos los colores son variables CSS (ver app/layout.js) para que el modo
 // claro/oscuro cambie la app completa sin tocar cada componente.
 const COLORS = {
@@ -947,7 +947,7 @@ const CARD_GRADIENTS = [
   ["var(--accent)", "var(--accent)"], ["var(--accent)", "var(--accent)"], ["var(--accent)", "var(--accent)"],
 ];
 // Antes: degradados de colores. Ahora: relleno sólido que alterna entre el
-// naranja de marca y un gris tiza (ambos llevan texto oscuro encima).
+// verde de marca y un gris tiza (ambos llevan texto oscuro encima).
 const grad = (i) => (((i % 2) + 2) % 2 === 0 ? "var(--accent)" : "var(--chip)");
 function hashStr(s) {
   let h = 0;
@@ -1281,7 +1281,7 @@ function HomeScreen({ quinielas = QUINIELAS, onOpenQuiniela, onCreate, fromFaceb
         background: "var(--hero)", border: "1px solid rgba(255,255,255,.08)",
       }}>
         <HeroStripes />
-        {wide && <div aria-hidden className="qv-head" style={{ position: "absolute", right: wide ? 24 : -6, bottom: wide ? -40 : -24, fontSize: wide ? 260 : 150, color: "transparent", WebkitTextStroke: "2px rgba(255,90,31,.55)", pointerEvents: "none" }}>10</div>}
+        {wide && <div aria-hidden className="qv-head" style={{ position: "absolute", right: wide ? 24 : -6, bottom: wide ? -40 : -24, fontSize: wide ? 260 : 150, color: "transparent", WebkitTextStroke: "2px rgba(34,197,94,.55)", pointerEvents: "none" }}>10</div>}
         <div style={{ position: "relative", maxWidth: wide ? "68%" : "100%" }}>
           <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "var(--accent)", borderRadius: 6, padding: "4px 9px", color: "var(--on-accent)", fontSize: 10.5, fontWeight: 800, letterSpacing: 1.2, textTransform: "uppercase" }}>
             <BarChart3 size={12} /> Quiniela Global · Sorteo #{drawNo}

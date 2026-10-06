@@ -15,14 +15,14 @@ export const metadata = {
   description: "Quinielas deportivas con amigos, ranking global y torneos.",
 };
 
-// Paleta: negro/blanco con un único acento naranja. Modo oscuro y claro.
+// Paleta: negro/blanco con un único acento verde. Modo oscuro y claro.
 const THEME_CSS = `
 *, *::before, *::after { box-sizing: border-box; }
 :root, :root[data-theme="dark"] {
   color-scheme: dark;
   --bg: #0A0A0A; --surface: #141414; --surface-2: #1C1C1C; --line: #262626; --line-strong: #3A3A3A;
   --ink: #F5F5F4; --ink-dim: #8F8F8C; --tint: rgba(255,255,255,.05); --tint-2: rgba(255,255,255,.09);
-  --accent: #FF5A1F; --accent-text: #FF7A45; --accent-soft: rgba(255,90,31,.12); --accent-line: rgba(255,90,31,.45); --accent-glow: rgba(255,90,31,.28);
+  --accent: #22C55E; --accent-text: #4ADE80; --accent-soft: rgba(34,197,94,.12); --accent-line: rgba(34,197,94,.45); --accent-glow: rgba(34,197,94,.28);
   --on-accent: #0A0A0A; --chip: #EDEDEA; --live: #FF2D2D; --live-soft: rgba(255,45,45,.14);
   --hero: #161616; --glass: rgba(20,20,20,.78); --glass-strong: rgba(20,20,20,.94);
 }
@@ -30,7 +30,7 @@ const THEME_CSS = `
   color-scheme: light;
   --bg: #F4F4F2; --surface: #FFFFFF; --surface-2: #EFEFEC; --line: #E2E2DE; --line-strong: #CFCFCA;
   --ink: #0A0A0A; --ink-dim: #6B6B67; --tint: rgba(0,0,0,.035); --tint-2: rgba(0,0,0,.07);
-  --accent: #FF5A1F; --accent-text: #D9430F; --accent-soft: rgba(255,90,31,.10); --accent-line: rgba(255,90,31,.45); --accent-glow: rgba(255,90,31,.22);
+  --accent: #16A34A; --accent-text: #15803D; --accent-soft: rgba(34,197,94,.10); --accent-line: rgba(34,197,94,.45); --accent-glow: rgba(34,197,94,.22);
   --on-accent: #0A0A0A; --chip: #E6E6E2; --live: #E5191B; --live-soft: rgba(229,25,27,.10);
   --hero: #0A0A0A; --glass: rgba(255,255,255,.82); --glass-strong: rgba(255,255,255,.95);
 }
