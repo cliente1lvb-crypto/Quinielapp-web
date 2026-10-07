@@ -324,7 +324,7 @@ function sampleLeagues(now = new Date()) {
 // Planes de suscripción — sin tokens, límites por plan
 const PLANS = {
   free: { name: "Gratis", price: 0, maxLeagues: 5, maxGames: 10 },
-  premium: { name: "Premium", price: 1, maxLeagues: 10, maxGames: 20 },
+  premium: { name: "Premium", price: 5, maxLeagues: 10, maxGames: 20 },
 };
 
 const NOTIFICATIONS = [
@@ -4157,7 +4157,7 @@ function PlanScreen({ plan, onClose, onUpgrade }) {
           }}><Crown size={18} color={COLORS.gold} /></div>
           <div style={{ flex: 1 }}>
             <div style={{ color: COLORS.cream, fontWeight: 700, fontSize: 12.5 }}>Quinielapp Premium</div>
-            <div style={{ color: COLORS.creamDim, fontSize: 11, marginTop: 2 }}>$1.00 USD / mes · se renueva automático</div>
+            <div style={{ color: COLORS.creamDim, fontSize: 11, marginTop: 2 }}>$5.00 USD / mes · se renueva automático</div>
           </div>
         </div>
 
@@ -4220,7 +4220,7 @@ function PlanScreen({ plan, onClose, onUpgrade }) {
             {plan === "premium" ? (
               <span style={{ color: COLORS.gold, fontSize: 11, fontWeight: 800 }}>PLAN ACTUAL</span>
             ) : (
-              <span style={{ color: COLORS.gold, fontWeight: 800, fontSize: 15 }}>$1<span style={{ fontSize: 11, fontWeight: 600 }}>/mes</span></span>
+              <span style={{ color: COLORS.gold, fontWeight: 800, fontSize: 15 }}>$5<span style={{ fontSize: 11, fontWeight: 600 }}>/mes</span></span>
             )}
           </div>
           <div style={{ color: COLORS.creamDim, fontSize: 12.5, lineHeight: 1.9 }}>
@@ -4235,7 +4235,7 @@ function PlanScreen({ plan, onClose, onUpgrade }) {
         <button onClick={() => setConfirming(true)} style={{
           width: "100%", background: COLORS.gold, border: "none", borderRadius: 12, padding: "14px 0",
           color: COLORS.bg, fontWeight: 800, fontSize: 14, cursor: "pointer",
-        }}>Hacerme Premium · $1/mes</button>
+        }}>Hacerme Premium · $5/mes</button>
       ) : (
         <div style={{ textAlign: "center", color: COLORS.creamDim, fontSize: 11.5 }}>
           Ya eres Premium — cancela cuando quieras desde Ajustes.
@@ -4654,7 +4654,7 @@ function SidebarNav({ tab, setTab }) {
       }}>
         <HeroStripes />
         <div style={{ color: "#fff", fontWeight: 800, fontSize: 13.5 }}>Quinielapp Premium</div>
-        <div style={{ color: "rgba(255,255,255,.85)", fontSize: 11, margin: "4px 0 10px", lineHeight: 1.45 }}>20 partidos y 10 ligas por quiniela por solo 1 USD al mes.</div>
+        <div style={{ color: "rgba(255,255,255,.85)", fontSize: 11, margin: "4px 0 10px", lineHeight: 1.45 }}>20 partidos y 10 ligas por quiniela por 5 USD al mes.</div>
         <button onClick={() => setTab("profile")} style={{
           width: "100%", border: "none", borderRadius: 10, padding: "8px 0", background: "var(--accent)", color: "var(--on-accent)", fontWeight: 800, fontSize: 12, cursor: "pointer", position: "relative",
         }}>Mejorar plan</button>
