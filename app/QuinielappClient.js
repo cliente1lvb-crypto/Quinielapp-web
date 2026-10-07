@@ -4226,16 +4226,22 @@ function PlanScreen({ plan, onClose, onUpgrade }) {
           <div style={{ color: COLORS.creamDim, fontSize: 12.5, lineHeight: 1.9 }}>
             · Hasta {PLANS.premium.maxLeagues} ligas por quiniela<br />
             · Hasta {PLANS.premium.maxGames} partidos por quiniela<br />
-            · Incluye Ligue 1, MLS y más ligas exclusivas
+            · Más ligas cuando se agreguen (Liga MX, Champions, MLS…)
           </div>
         </div>
       </div>
 
       {plan === "free" ? (
-        <button onClick={() => setConfirming(true)} style={{
-          width: "100%", background: COLORS.gold, border: "none", borderRadius: 12, padding: "14px 0",
-          color: COLORS.bg, fontWeight: 800, fontSize: 14, cursor: "pointer",
-        }}>Hacerme Premium · $5/mes</button>
+        <>
+          {/* Todavía no hay pagos: Premium se muestra como "Próximamente" y no se puede activar. */}
+          <button disabled style={{
+            width: "100%", background: "var(--tint-2)", border: `1px dashed ${COLORS.line}`, borderRadius: 12, padding: "14px 0",
+            color: COLORS.cream, fontWeight: 800, fontSize: 14, cursor: "default",
+          }}>Próximamente · $5/mes</button>
+          <div style={{ textAlign: "center", color: COLORS.creamDim, fontSize: 11.5, marginTop: 8 }}>
+            Premium todavía no está disponible. Por ahora Quinielapp es 100% gratis.
+          </div>
+        </>
       ) : (
         <div style={{ textAlign: "center", color: COLORS.creamDim, fontSize: 11.5 }}>
           Ya eres Premium — cancela cuando quieras desde Ajustes.
@@ -4654,10 +4660,10 @@ function SidebarNav({ tab, setTab }) {
       }}>
         <HeroStripes />
         <div style={{ color: "#fff", fontWeight: 800, fontSize: 13.5 }}>Quinielapp Premium</div>
-        <div style={{ color: "rgba(255,255,255,.85)", fontSize: 11, margin: "4px 0 10px", lineHeight: 1.45 }}>20 partidos y 10 ligas por quiniela por 5 USD al mes.</div>
+        <div style={{ color: "rgba(255,255,255,.85)", fontSize: 11, margin: "4px 0 10px", lineHeight: 1.45 }}>Próximamente: 20 partidos y 10 ligas por quiniela por 5 USD al mes.</div>
         <button onClick={() => setTab("profile")} style={{
           width: "100%", border: "none", borderRadius: 10, padding: "8px 0", background: "var(--accent)", color: "var(--on-accent)", fontWeight: 800, fontSize: 12, cursor: "pointer", position: "relative",
-        }}>Mejorar plan</button>
+        }}>Ver Premium</button>
       </div>
 
       <button onClick={() => setTab("profile")} style={{
