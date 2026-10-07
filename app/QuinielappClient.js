@@ -1891,10 +1891,29 @@ function NotificationsSettings() {
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {push.status === "off" && <button disabled={push.busy} onClick={async () => { const r = await push.enable(); setMsg(r.error ? { err: r.error } : { ok: "¡Listo! Te mandamos una de prueba." }); if (r.ok) push.test(); }} style={btn(true)}>{push.busy ? "Activando…" : "Activar notificaciones"}</button>}
-          {push.status === "on" && <button disabled={push.busy} onClick={async () => { const r = await push.test(); setMsg(r.ok ? { ok: "Enviada. Debe aparecer en unos segundos." } : { err: r.error }); }} style={btn(true)}>Enviar una de prueba</button>}
+          {push.status === "on" && <button disabled={push.busy} onClick={async () => { const r = await push.test(); setMsg(r.ok ? { ok: `El servidor la envió a ${r.sent} dispositivo(s). Debe aparecer en unos segundos; si no aparece, prueba "Probar este dispositivo".` } : { err: r.error }); }} style={btn(true)}>Enviar una de prueba</button>}
+          {push.status === "on" && <button onClick={async () => {
+            // Prueba local (sin servidor): si esta tampoco aparece, el bloqueo está en el sistema operativo o el navegador.
+            try {
+              const reg = await getSWReg(); await navigator.serviceWorker.ready;
+              await reg.showNotification("Prueba local de Quinielapp ⚽", { body: "Si ves esto, tu navegador sí muestra notificaciones.", icon: "/icon-192.png", tag: "qa-local-test" });
+              setMsg({ ok: "Se pidió mostrar una notificación local. Si no la ves, revisa los permisos de notificaciones de tu sistema para el navegador (abajo)." });
+            } catch (e) { setMsg({ err: "Tu navegador no permitió mostrar la notificación: " + (e && e.message ? e.message : e) }); }
+          }} style={btn(false)}>Probar este dispositivo</button>}
           {push.status === "on" && <button disabled={push.busy} onClick={() => { push.disable(); setMsg(null); }} style={btn(false)}>Desactivar</button>}
         </div>
         {msg && <div style={{ color: msg.err ? COLORS.live : "var(--accent-text)", fontSize: 11.5, marginTop: 8 }}>{msg.err || msg.ok}</div>}
+        {push.status === "on" && (
+          <details style={{ marginTop: 10, color: COLORS.creamDim, fontSize: 11.5, lineHeight: 1.55 }}>
+            <summary style={{ cursor: "pointer", color: COLORS.cream, fontWeight: 700 }}>¿No te llegan?</summary>
+            <div style={{ marginTop: 6 }}>
+              <b style={{ color: COLORS.cream }}>Mac:</b> Configuración del Sistema → Notificaciones → Google Chrome (o tu navegador) → activa "Permitir notificaciones" y elige estilo "Alertas" o "Tiras". Revisa también que no esté activo un modo Concentración / No molestar.<br />
+              <b style={{ color: COLORS.cream }}>Windows:</b> Configuración → Sistema → Notificaciones → activa las de tu navegador y desactiva "No molestar".<br />
+              <b style={{ color: COLORS.cream }}>Android:</b> Ajustes → Apps → Chrome → Notificaciones → permitidas.<br />
+              <b style={{ color: COLORS.cream }}>iPhone:</b> solo funcionan si agregaste Quinielapp a la pantalla de inicio y la abres desde ese ícono.
+            </div>
+          </details>
+        )}
       </div>
 
       <div style={box}>
