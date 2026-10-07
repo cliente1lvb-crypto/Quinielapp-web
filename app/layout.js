@@ -16,7 +16,16 @@ export const metadata = {
   manifest: "/manifest.webmanifest",
   applicationName: "Quinielapp",
   appleWebApp: { capable: true, title: "Quinielapp", statusBarStyle: "black-translucent" },
-  icons: { apple: "/apple-touch-icon.png" },
+  // Favicon: .ico para todos los navegadores (incluido Safari) + SVG nítido para los que lo soportan.
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/favicon-32.png", type: "image/png", sizes: "32x32" },
+    ],
+    shortcut: "/favicon.ico",
+    apple: "/apple-touch-icon.png",
+  },
   formatDetection: { telephone: false },
   // Verificación de propiedad del sitio en Google Search Console (variable en Vercel).
   ...(process.env.GOOGLE_SITE_VERIFICATION ? { verification: { google: process.env.GOOGLE_SITE_VERIFICATION.trim() } } : {}),
