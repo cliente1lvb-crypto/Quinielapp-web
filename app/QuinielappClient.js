@@ -487,7 +487,9 @@ function BottomNav({ tab, setTab }) {
 
 // ---------- Screens ----------
 // ---------- Ranking v2 ----------
-const LEV_COLORS = { L: ["var(--accent)", "var(--accent)"], E: ["var(--chip)", "var(--chip)"], V: ["var(--ink)", "var(--ink)"] };
+// L = gana local (azul), E = empate (blanco), V = gana visitante (rojo).
+const LEV_COLORS = { L: ["#2563EB", "#2563EB"], E: ["#F5F5F4", "#F5F5F4"], V: ["#DC2626", "#DC2626"] };
+const LEV_TEXT = { L: "#FFFFFF", E: "#0A0A0A", V: "#FFFFFF" };
 
 function PageHero({ kicker, title, subtitle, gradient, emoji, children, wide }) {
   return (
@@ -619,9 +621,9 @@ function LEVPicker({ value, onChange }) {
         return (
           <button key={v} onClick={() => onChange(v)} title={label} style={{
             width: 34, height: 34, borderRadius: 10, cursor: "pointer", fontWeight: 800, fontSize: 12.5,
-            border: on ? "none" : `1px solid ${COLORS.line}`,
-            background: on ? `linear-gradient(135deg, ${LEV_COLORS[v][0]}, ${LEV_COLORS[v][1]})` : "var(--tint)",
-            color: on ? "var(--on-accent)" : COLORS.creamDim, transform: on ? "scale(1.06)" : "none", transition: "all .15s",
+            border: on ? (v === "E" ? "1px solid #CFCFCA" : "none") : `1px solid ${COLORS.line}`,
+            background: on ? LEV_COLORS[v][0] : "var(--tint)",
+            color: on ? LEV_TEXT[v] : COLORS.creamDim, transform: on ? "scale(1.06)" : "none", transition: "all .15s",
             boxShadow: on ? `0 4px 14px ${LEV_COLORS[v][0]}55` : "none",
           }}>{v}</button>
         );
@@ -659,7 +661,7 @@ function GlobalQuinielaCard({ joinedGlobal, onJoinGlobal }) {
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
           {sorteo.partidos.slice(0, 6).map(p => (
             <div key={p.n} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", borderRadius: 999, background: "var(--tint)", border: `1px solid ${COLORS.line}` }}>
-              <TeamBadge name={p.home} size={18} /><span style={{ color: COLORS.creamDim, fontSize: 10 }}>vs</span><TeamBadge name={p.away} size={18} />
+              <LeagueFlag league={p.league} size={13} /><span style={{ color: COLORS.cream, fontSize: 11, fontWeight: 700, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.home} <span style={{ color: COLORS.creamDim, fontWeight: 500 }}>vs</span> {p.away}</span>
             </div>
           ))}
           {sorteo.partidos.length > 6 && <span style={{ color: COLORS.creamDim, fontSize: 11, alignSelf: "center" }}>+{sorteo.partidos.length - 6} más</span>}
@@ -685,7 +687,7 @@ function GlobalQuinielaCard({ joinedGlobal, onJoinGlobal }) {
       <div style={{ display: "flex", gap: 12, marginBottom: 10, fontSize: 10.5, color: COLORS.creamDim }}>
         {Object.entries({ L: "Gana local", E: "Empate", V: "Gana visitante" }).map(([k, l]) => (
           <span key={k} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-            <span style={{ width: 10, height: 10, borderRadius: 3, background: `linear-gradient(135deg, ${LEV_COLORS[k][0]}, ${LEV_COLORS[k][1]})` }} />{k} = {l}
+            <span style={{ width: 10, height: 10, borderRadius: 3, background: LEV_COLORS[k][0], boxShadow: k === "E" ? "0 0 0 1px #CFCFCA" : "none" }} />{k} = {l}
           </span>
         ))}
       </div>
@@ -695,12 +697,11 @@ function GlobalQuinielaCard({ joinedGlobal, onJoinGlobal }) {
           background: picks[p.n] ? `${LEV_COLORS[picks[p.n]][0]}0f` : "var(--tint)", border: `1px solid ${picks[p.n] ? LEV_COLORS[picks[p.n]][0] + "33" : "transparent"}`,
         }}>
           <span style={{ width: 20, textAlign: "center", color: COLORS.creamDim, fontWeight: 800, fontSize: 11, fontFamily: "var(--font-mono), monospace" }}>{p.n}</span>
-          <TeamBadge name={p.home} size={26} />
+          <LeagueFlag league={p.league} size={20} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ color: COLORS.cream, fontSize: 12, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.home} <span style={{ color: COLORS.creamDim, fontWeight: 500 }}>vs</span> {p.away}</div>
             <div style={{ color: COLORS.creamDim, fontSize: 10 }}>{p.league}{p.kickoffAt ? <> · <span style={{ color: COLORS.cream }}>{kickLabel(p.kickoffAt)}</span></> : ""}</div>
           </div>
-          <TeamBadge name={p.away} size={26} />
           <LEVPicker value={picks[p.n]} onChange={(v) => { if (!sent) setPicks(prev => ({ ...prev, [p.n]: v })); }} />
         </div>
       ))}
@@ -1027,6 +1028,45 @@ function VibeStyles() {
 
 // Marcador visual neutro del equipo: una playera genérica sobre un círculo de
 // color. No usa escudos, iniciales ni colores oficiales de ningún club.
+// Bandera (SVG simple) del país donde se juega cada liga. Se dibuja en SVG y no
+// con emoji porque Windows no muestra las banderas emoji.
+const LEAGUE_COUNTRY = {
+  "premier league": "eng", "la liga": "es", "laliga": "es", "serie a": "it", "bundesliga": "de", "ligue 1": "fr",
+  "liga mx": "mx", "mls": "us", "eredivisie": "nl", "primeira liga": "pt", "champions league": "eu", "europa league": "eu",
+};
+const COUNTRY_NAME = { eng: "Inglaterra", es: "España", it: "Italia", de: "Alemania", fr: "Francia", mx: "México", us: "Estados Unidos", nl: "Países Bajos", pt: "Portugal", eu: "Europa" };
+function countryOfLeague(league) {
+  const k = String(league || "").trim().toLowerCase();
+  if (LEAGUE_COUNTRY[k]) return LEAGUE_COUNTRY[k];
+  const hit = Object.keys(LEAGUE_COUNTRY).find(n => k.includes(n));
+  return hit ? LEAGUE_COUNTRY[hit] : null;
+}
+function FlagShapes({ c }) {
+  switch (c) {
+    case "eng": return (<><rect width="30" height="20" fill="#fff" /><rect x="12.5" width="5" height="20" fill="#CE1124" /><rect y="7.5" width="30" height="5" fill="#CE1124" /></>);
+    case "es": return (<><rect width="30" height="20" fill="#AA151B" /><rect y="5" width="30" height="10" fill="#F1BF00" /></>);
+    case "it": return (<><rect width="10" height="20" fill="#009246" /><rect x="10" width="10" height="20" fill="#fff" /><rect x="20" width="10" height="20" fill="#CE2B37" /></>);
+    case "de": return (<><rect width="30" height="6.67" fill="#000" /><rect y="6.67" width="30" height="6.67" fill="#DD0000" /><rect y="13.33" width="30" height="6.67" fill="#FFCE00" /></>);
+    case "fr": return (<><rect width="10" height="20" fill="#0055A4" /><rect x="10" width="10" height="20" fill="#fff" /><rect x="20" width="10" height="20" fill="#EF4135" /></>);
+    case "mx": return (<><rect width="10" height="20" fill="#006847" /><rect x="10" width="10" height="20" fill="#fff" /><rect x="20" width="10" height="20" fill="#CE1126" /><circle cx="15" cy="10" r="2.6" fill="#8C6239" /></>);
+    case "us": return (<><rect width="30" height="20" fill="#fff" />{[0, 2, 4, 6, 8, 10, 12].map(i => <rect key={i} y={i * 20 / 13} width="30" height={20 / 13} fill="#B22234" />)}<rect width="13" height="10.8" fill="#3C3B6E" /></>);
+    case "nl": return (<><rect width="30" height="6.67" fill="#AE1C28" /><rect y="6.67" width="30" height="6.67" fill="#fff" /><rect y="13.33" width="30" height="6.67" fill="#21468B" /></>);
+    case "pt": return (<><rect width="12" height="20" fill="#046A38" /><rect x="12" width="18" height="20" fill="#DA291C" /><circle cx="12" cy="10" r="3.6" fill="#FFE900" /></>);
+    case "eu": return (<><rect width="30" height="20" fill="#003399" />{Array.from({ length: 12 }, (_, i) => { const a = (i / 12) * 2 * Math.PI; return <circle key={i} cx={15 + 6 * Math.cos(a)} cy={10 + 6 * Math.sin(a)} r="0.9" fill="#FFCC00" />; })}</>);
+    default: return (<rect width="30" height="20" fill="var(--tint-2)" />);
+  }
+}
+function LeagueFlag({ league, size = 22 }) {
+  const c = countryOfLeague(league);
+  const w = size * 1.5;
+  return (
+    <svg width={w} height={size} viewBox="0 0 30 20" role="img" aria-label={c ? COUNTRY_NAME[c] : "Liga"} style={{ flexShrink: 0, borderRadius: 3, boxShadow: "0 0 0 1px var(--line)", display: "block" }}>
+      <title>{c ? COUNTRY_NAME[c] : league}</title>
+      <FlagShapes c={c} />
+    </svg>
+  );
+}
+
 function TeamBadge({ name, size = 30 }) {
   const h = hashStr(name) % 360;
   return (
@@ -1114,14 +1154,13 @@ function LiveTicker({ items }) {
         {row.map((g, i) => (
           <div key={i} style={{ display: "flex", alignItems: "center", gap: 9, padding: "10px 18px", borderRight: `1px solid ${COLORS.line}`, whiteSpace: "nowrap" }}>
             <span style={{ color: COLORS.creamDim, fontSize: 9.5, textTransform: "uppercase", letterSpacing: 0.6 }}>{g.league}</span>
-            <TeamBadge name={g.home} size={20} />
+            <LeagueFlag league={g.league} size={14} />
             <span style={{ color: COLORS.cream, fontSize: 12, fontWeight: 700 }}>{g.home}</span>
             <span style={{
               fontFamily: "var(--font-mono), monospace", fontWeight: 800, fontSize: 12.5, padding: "2px 8px", borderRadius: 6,
               background: g.live ? "var(--live-soft)" : "var(--tint)", color: g.live ? "var(--live)" : COLORS.cream,
             }}>{g.hs != null ? `${g.hs} - ${g.as}` : "vs"}</span>
             <span style={{ color: COLORS.cream, fontSize: 12, fontWeight: 700 }}>{g.away}</span>
-            <TeamBadge name={g.away} size={20} />
             <span style={{ color: g.live ? "var(--live)" : VIBE.cyan, fontSize: 10.5, fontWeight: 700 }}>{g.live ? `● ${g.min}` : g.min}</span>
           </div>
         ))}
@@ -1160,21 +1199,19 @@ function MatchCard({ m, i, onPick }) {
       background: "var(--surface)", border: "1px solid var(--line)",
     }}>
       <div style={{ position: "relative", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-        <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase", padding: "3px 8px", borderRadius: 6, background: "var(--tint-2)", color: "var(--ink-dim)" }}>{m.league}</span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 10, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase", padding: "3px 8px 3px 4px", borderRadius: 6, background: "var(--tint-2)", color: "var(--ink-dim)" }}><LeagueFlag league={m.league} size={12} />{m.league}</span>
         {m.live
           ? <span style={{ color: "var(--live)", fontSize: 10.5, fontWeight: 800, display: "flex", alignItems: "center", gap: 5 }}><span className="qv-live-dot" /> {m.min}</span>
           : <span style={{ color: COLORS.creamDim, fontSize: 10.5 }}>{m.date || m.min}</span>}
       </div>
       <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
         <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6, minWidth: 0 }}>
-          <TeamBadge name={m.home} size={40} />
           <span style={{ color: COLORS.cream, fontSize: 11.5, fontWeight: 700, textAlign: "center", lineHeight: 1.2 }}>{m.home}</span>
         </div>
         <div style={{ color: m.live ? "var(--live)" : COLORS.creamDim, fontFamily: "var(--font-mono), monospace", fontWeight: 800, fontSize: m.hs != null ? 20 : 13 }}>
           {m.hs != null ? `${m.hs}-${m.as}` : "VS"}
         </div>
         <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6, minWidth: 0 }}>
-          <TeamBadge name={m.away} size={40} />
           <span style={{ color: COLORS.cream, fontSize: 11.5, fontWeight: 700, textAlign: "center", lineHeight: 1.2 }}>{m.away}</span>
         </div>
       </div>
@@ -1567,8 +1604,8 @@ function CalendarScreen({ wide = false, onCreate }) {
         return (
           <React.Fragment key={mt.id}>
             {!prevLeague && (
-              <div style={{ color: COLORS.creamDim, fontSize: 10.5, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", margin: i ? "14px 0 6px" : "0 0 6px" }}>
-                {mt.league} · {mt.round}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, color: COLORS.creamDim, fontSize: 10.5, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", margin: i ? "14px 0 6px" : "0 0 6px" }}>
+                <LeagueFlag league={mt.league} size={12} />{mt.league} · {mt.round}
               </div>
             )}
             <div style={{ display: "grid", gridTemplateColumns: wide ? "58px 1fr auto 1fr" : "46px 1fr auto 1fr", alignItems: "center", gap: wide ? 8 : 6, padding: "10px 0", borderTop: prevLeague ? `1px solid ${COLORS.line}` : "none" }}>
@@ -1619,7 +1656,7 @@ function CalendarScreen({ wide = false, onCreate }) {
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           <button onClick={() => setOn([])} style={chip(on.length === 0)}>Todas</button>
           {(data.leagues || CAL_LEAGUE_DEFAULT).map(l => (
-            <button key={l.id} onClick={() => toggleLeague(l.id)} style={chip(on.includes(l.id))}>{l.name}</button>
+            <button key={l.id} onClick={() => toggleLeague(l.id)} style={{ ...chip(on.includes(l.id)), display: "inline-flex", alignItems: "center", gap: 6 }}><LeagueFlag league={l.name} size={11} />{l.name}</button>
           ))}
         </div>
       </div>
@@ -2861,7 +2898,7 @@ function CreateQuinielaModal({ onClose, onCreated, plan, onOpenPlan }) {
                     padding: "12px 14px", marginBottom: 8, cursor: "pointer",
                     opacity: (atCap && !isSel && !locked) ? 0.4 : 1,
                   }}>
-                    <span style={{ minWidth: 34, height: 34, borderRadius: 9, background: "var(--tint-2)", color: COLORS.cream, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800 }}>{l.country}</span>
+                    <span style={{ minWidth: 34, height: 34, borderRadius: 9, background: "var(--tint-2)", display: "inline-flex", alignItems: "center", justifyContent: "center" }}><LeagueFlag league={l.name} size={16} /></span>
                     <div style={{ flex: 1 }}>
                       <div style={{ color: COLORS.cream, fontWeight: 700, fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
                         {l.name}
